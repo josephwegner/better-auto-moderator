@@ -26,6 +26,9 @@ class Rule:
             else:
                 self.config[key] = config.get(key)
 
+        if self.requires_bam and self.config.hasattr('standard'):
+            raise Exception('Standard check defined for a BAM rule. Standards are not supported by BAM.')
+
     def parse_type(self, type):
         self.type = type
 

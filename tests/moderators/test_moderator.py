@@ -131,3 +131,14 @@ class ModeratorTestCase(unittest.TestCase):
             'action': 'remove'
         })
         self.assertFalse(mod.moderate(rule), "basic author checks are throwing false positive")
+
+    def test_placeholders(self):
+        comment = helpers.comment()
+        comment.body = "Hello, %s" % comment.author.name
+        mod = Moderator(comment)
+
+        rule = Rule({
+            'body': 'Hello, {{author}}',
+            'action': 'remove'
+        })
+        assert mod.moderate(rule), "Author placeholder is not replaced"

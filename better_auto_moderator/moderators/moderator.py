@@ -89,7 +89,11 @@ class Moderator:
             for name in check_name.split('+'):
                 check = getattr(checks, name)
                 if callable(check):
-                    if check(rule.config[key], rule, options) is check_truthiness:
+                    val = rule.config[key]
+                    if isinstance(val, str):
+                        val = ModeratorPlaceholders.replace(val, self.item)
+
+                    if check(val, rule, options) is check_truthiness:
                         return True
 
             return False
@@ -118,7 +122,6 @@ class Moderator:
     @staticmethod
     def numeric(value, test, options):
         number = float(re.search(r'[0-9\-.]+', test).group(0))
-        print(value, test, number)
         if '>' in test:
             return value > number
         elif '<' in test:
@@ -164,3 +167,22 @@ class ModeratorAuthorChecks(AbstractChecks):
     @comparator(default='numeric')
     def post_karma(self, rule, options):
         return self.item.author.link_karma
+
+class ModeratorPlaceholders():
+    @classmethod
+    def replace(cls, str, item):
+        match = re.search(r'{{(.*?)}}', str)
+        if match is None:
+            return str
+
+        replaced = str
+        for group in match.groups():
+            if hasattr(cls, group):
+                inject = getattr(cls, group)(item)
+                replaced = str.replace("{{%s}}" % group, inject)
+
+        return replaced
+
+    @staticmethod
+    def author(item):
+        return str(item.author.name)
