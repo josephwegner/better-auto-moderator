@@ -89,12 +89,16 @@ class Moderator:
             for name in check_name.split('+'):
                 check = getattr(checks, name)
                 if callable(check):
-                    val = rule.config[key]
-                    if isinstance(val, str):
-                        val = ModeratorPlaceholders.replace(val, self.item)
+                    values = rule.config[key]
+                    if not isinstance(values, list):
+                        values = [values]
 
-                    if check(val, rule, options) is check_truthiness:
-                        return True
+                    for val in values:
+                        if isinstance(val, str):
+                            val = ModeratorPlaceholders.replace(val, self.item)
+
+                        if check(val, rule, options) is check_truthiness:
+                            return True
 
             return False
 

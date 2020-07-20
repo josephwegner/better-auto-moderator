@@ -43,6 +43,22 @@ class ModeratorTestCase(unittest.TestCase):
         })
         assert mod.moderate(rule), "Moderators are exempted even when moderators_exempt is false"
 
+    def test_multiple_values(self):
+        comment = helpers.comment()
+        mod = Moderator(comment)
+
+        rule = Rule({
+            'id': ['abcde', 'fghij'],
+            'action': 'remove'
+        })
+        assert mod.moderate(rule), "Matches fail with multiple values"
+
+        rule = Rule({
+            'id': ['fghij', 'abcde'],
+            'action': 'remove'
+        })
+        assert mod.moderate(rule), "Matches fail with multiple values, when correct value is not first"
+
     def test_multiple_checks(self):
         comment = helpers.comment()
         mod = Moderator(comment)
