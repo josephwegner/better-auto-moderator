@@ -9,6 +9,9 @@ def comment():
     })
     sub = PropertyMock(return_value=subreddit())
     type(comment).subreddit = sub
+    comment.user_reports = []
+    comment.mod_reports = [] 
+    comment.author.moderated = MagicMock(return_value=[])
     comment.mod.approve = MagicMock(return_value=True)
     comment.mod.remove = MagicMock(return_value=True)
 

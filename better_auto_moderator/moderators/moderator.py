@@ -77,11 +77,19 @@ class Moderator:
                 options = [opt.strip() for opt in options_re.group(1).split(',')]
                 check_name = re.search(r'([^\s]*)\s?\(', key).group(1)
 
-            check = getattr(self.checks, check_name)
-            if callable(check):
-                return check(rule.config[key], rule, options)
-            else:
-                return False
+
+            check_truthiness = True
+            if check_name[0] == '~':
+                check_name = check_name[1:]
+                check_truthiness = False
+
+            for name in check_name.split('+'):
+                check = getattr(self.checks, name)
+                if callable(check):
+                    if check(rule.config[key], rule, options) is check_truthiness:
+                        return True
+
+            return False
 
     def approve(self, rule):
         print("Approving %s %s" % (type(self.item).__name__, self.item.id))
@@ -98,8 +106,11 @@ class Moderator:
             self.item.mod.ignore_reports()
 
     @staticmethod
-    def full_exact(value, test):
-        return value == test
+    def full_exact(value, test, options):
+        if not 'case-sensitive' in options:
+            return value == test
+        else:
+            return value.lower == test.lower
 
 
 def comparator(default='full-exact'):
@@ -111,7 +122,7 @@ def comparator(default='full-exact'):
                 if hasattr(inst.moderator, option.replace('-', '_')):
                     comparator = getattr(inst.moderator, option.replace('-', '_'))
 
-            return comparator(func(inst, rule, options), value)
+            return comparator(func(inst, rule, options), value, options)
         return wrapper_comparator
     return decorator_comparator
 
@@ -123,3 +134,7 @@ class ModeratorChecks:
     @comparator(default='full-exact')
     def id(self, rule, options):
         return self.item.id
+
+    @comparator(default='full-exact')
+    def body(self, rule, options):
+        return self.item.body

@@ -42,3 +42,71 @@ class ModeratorTestCase(unittest.TestCase):
             'action': 'remove'
         })
         assert mod.moderate(rule), "Moderators are exempted even when moderators_exempt is false"
+
+    def test_multiple_checks(self):
+        comment = helpers.comment()
+        mod = Moderator(comment)
+
+        rule = Rule({
+            'id+body': 'abcde',
+            'action': 'remove'
+        })
+        assert mod.moderate(rule), "Matches when checks are combined"
+
+        rule = Rule({
+            'id+body': 'Hello, world!',
+            'action': 'remove'
+        })
+        assert mod.moderate(rule), "Matches when checks are combined"
+
+        rule = Rule({
+            'id+body': 'not there',
+            'action': 'remove'
+        })
+        self.assertFalse(mod.moderate(rule), "Matches when checks are combined")
+
+    def test_negation(self):
+        comment = helpers.comment()
+        mod = Moderator(comment)
+
+        rule = Rule({
+            'id': 'abcde',
+            'action': 'remove'
+        })
+        assert mod.moderate(rule), "Doesn't match when validity is default"
+
+
+        rule = Rule({
+            '~id': 'abcde',
+            'action': 'remove'
+        })
+        self.assertFalse(mod.moderate(rule), "Matches when validity is default")
+
+        rule = Rule({
+            'id': 'test',
+            'action': 'remove'
+        })
+        self.assertFalse(mod.moderate(rule), "Matches when validity is default and there's no actual match")
+
+
+        rule = Rule({
+            '~id': 'test',
+            'action': 'remove'
+        })
+        assert mod.moderate(rule), "Doesn't match when validity is default, but there's no actual match"
+
+    def lowercase_checks(self):
+        comment = helpers.comment()
+        mod = Moderator(comment)
+
+        rule = Rule({
+            'id (full-text)': 'AbCdE',
+            'action': 'remove'
+        })
+        assert mod.moderate(rule), "full-text doesn't match when some letters are uppercase"
+
+        rule = Rule({
+            'id (full-text, case-sensitive)': 'AbCdE',
+            'action': 'remove'
+        })
+        self.assertFalse(mod.moderate(rule), "full-text matches even when some letters are uppercase and case-sensitive is on")

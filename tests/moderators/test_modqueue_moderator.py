@@ -40,7 +40,6 @@ class ModeratorTestCase(unittest.TestCase):
         comment.user_reports = [
             ['abcde', 1],
         ]
-        comment.mod_reports = []
         mod = ModqueueModerator(comment)
         assert mod.moderate(rule), "User reports (only) not passing when only a match exists"
 
@@ -69,7 +68,7 @@ class ModeratorTestCase(unittest.TestCase):
         })
 
         comment = helpers.comment()
-        comment.author.moderated = MagicMock(return_value=[])
+        comment.author.moderated = MagicMock(return_value=[comment.subreddit])
         comment.user_reports = [
             ['fghij', 1],
         ]
@@ -85,3 +84,21 @@ class ModeratorTestCase(unittest.TestCase):
             'moderators_exempt': True
         })
         self.assertFalse(mod.moderate(rule), "Report reasons include mod reports even when moderators_exempt is true")
+
+    def test_contains_calls_full_text(self):
+        rule = Rule({
+            'report_reason': 'abcde',
+            'action': 'approve'
+        })
+
+        comment = helpers.comment()
+        comment.user_reports = [
+            ['fghij', 1],
+        ]
+        mod = ModqueueModerator(comment)
+        old_full_exact = ModqueueModerator.full_exact
+        ModqueueModerator.full_exact = MagicMock(return_value=True)
+        mod.moderate(rule)
+
+        mod.full_exact.assert_called()
+        ModqueueModerator.full_exact = old_full_exact

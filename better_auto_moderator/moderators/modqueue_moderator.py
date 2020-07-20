@@ -1,4 +1,3 @@
-import pprint
 from functools import cached_property
 from better_auto_moderator.moderators.moderator import Moderator, ModeratorChecks, comparator
 
@@ -17,21 +16,21 @@ class ModqueueModerator(Moderator):
 
         return exempt
 
-    @staticmethod
-    def contains(values, test):
+    @classmethod
+    def contains(cls, values, test, options):
         for value in values:
-            if Moderator.full_exact(value, test):
+            if cls.full_exact(value, test, options):
                 return True
 
         return False
 
-    @staticmethod
-    def only(values, test):
+    @classmethod
+    def only(cls, values, test, options):
         if len(values) == 0:
             return False
 
         for value in values:
-            if not Moderator.full_exact(value, test):
+            if not cls.full_exact(value, test, options):
                 return False
 
         return True
