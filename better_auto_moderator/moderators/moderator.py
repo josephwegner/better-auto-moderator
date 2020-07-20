@@ -1,4 +1,5 @@
 import re
+from functools import cached_property, wraps
 
 class Moderator:
     moderators_exempt_actions = [
@@ -7,13 +8,6 @@ class Moderator:
         'spam',
         'filter'
     ]
-
-    checks = {
-        'id': {
-            'comparison': 'full-exact',
-            'get': lambda item: item.id
-        }
-    }
 
     actions = {
         'approve': 'approve',
@@ -33,6 +27,10 @@ class Moderator:
 
     def __init__(self, item):
         self.item = item
+
+    @cached_property
+    def checks(self):
+        return ModeratorChecks(self)
 
     def are_moderators_exempt(self, rule):
         exempt = False
@@ -62,7 +60,7 @@ class Moderator:
             return False
 
         if not hasattr(self, self.actions[action]):
-            print("Actoon %s invoked, but is not implemented" % action)
+            print("Action %s invoked, but is not implemented" % action)
             return False
 
         actioner = getattr(self, self.actions[action])
@@ -72,30 +70,18 @@ class Moderator:
 
     def check(self, rule):
         for key in rule.config:
-            check = key
+            check_name = key
             options_re = re.search(r'.*\(([a-z, ]+)\)', key)
             options = []
             if options_re is not None:
                 options = [opt.strip() for opt in options_re.group(1).split(',')]
-                check = re.search(r'([^\s]*)\s?\(', key).group(1)
+                check_name = re.search(r'([^\s]*)\s?\(', key).group(1)
 
-            if check in self.checks:
-                check = self.checks[check]
-                comparison_key = check['comparison'].replace('-', '_')
-
-                for option in options:
-                    if hasattr(self, option.replace('-', '_')):
-                        comparison_key = option.replace('-', '_')
-
-                if hasattr(self, comparison_key):
-                    comparison = getattr(self, comparison_key)
-                    if not comparison(check['get'](self.item), rule.config[key]):
-                        return False
-                else:
-                    print ("Comparison %s was used, but is not implemented." % check['comparison'])
-                    return False
-
-        return True
+            check = getattr(self.checks, check_name)
+            if callable(check):
+                return check(rule.config[key], rule, options)
+            else:
+                return False
 
     def approve(self, rule):
         print("Approving %s %s" % (type(self.item).__name__, self.item.id))
@@ -114,3 +100,26 @@ class Moderator:
     @staticmethod
     def full_exact(value, test):
         return value == test
+
+
+def comparator(default='full-exact'):
+    def decorator_comparator(func):
+        wraps(func)
+        def wrapper_comparator(inst, value, rule, options):
+            comparator = getattr(inst.moderator, default.replace('-', '_'))
+            for option in options:
+                if hasattr(inst.moderator, option.replace('-', '_')):
+                    comparator = getattr(inst.moderator, option.replace('-', '_'))
+
+            return comparator(func(inst, rule, options), value)
+        return wrapper_comparator
+    return decorator_comparator
+
+class ModeratorChecks:
+    def __init__(self, moderator):
+        self.moderator = moderator
+        self.item = moderator.item
+
+    @comparator(default='full-exact')
+    def id(self, rule, options):
+        return self.item.id

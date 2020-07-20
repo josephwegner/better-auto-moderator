@@ -1,17 +1,14 @@
 import pprint
-from better_auto_moderator.moderators.moderator import Moderator
+from functools import cached_property
+from better_auto_moderator.moderators.moderator import Moderator, ModeratorChecks, comparator
 
 class ModqueueModerator(Moderator):
-
-    checks = { **Moderator.checks,
-        'report_reason': {
-            'comparison': 'contains',
-            'get': lambda item: [report[0] for report in item.user_reports]
-        }
-    }
-
     def __init__(self, item):
         super().__init__(item)
+
+    @cached_property
+    def checks(self):
+        return ModqueueModeratorChecks(self)
 
     def are_moderators_exempt(self, rule):
         exempt = False
@@ -38,3 +35,13 @@ class ModqueueModerator(Moderator):
                 return False
 
         return True
+
+
+class ModqueueModeratorChecks(ModeratorChecks):
+    @comparator(default='contains')
+    def report_reason(self, rule, options):
+        reports = self.item.user_reports
+        if not self.moderator.are_moderators_exempt(rule):
+            reports = reports + self.item.mod_reports
+
+        return [report[0] for report in reports]

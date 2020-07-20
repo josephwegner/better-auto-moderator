@@ -17,6 +17,7 @@ class ModeratorTestCase(unittest.TestCase):
             ['abcde', 1],
             ['edcba', 1]
         ]
+        comment.mod_reports = []
         mod = ModqueueModerator(comment)
         assert mod.moderate(rule), "User reports not passing when the list contains the value"
 
@@ -25,6 +26,7 @@ class ModeratorTestCase(unittest.TestCase):
             ['fghij', 1],
             ['edcba', 1]
         ]
+        comment.mod_reports = []
         mod = ModqueueModerator(comment)
         self.assertFalse(mod.moderate(rule), "User reports are passing when the list does not contain the value")
 
@@ -38,6 +40,7 @@ class ModeratorTestCase(unittest.TestCase):
         comment.user_reports = [
             ['abcde', 1],
         ]
+        comment.mod_reports = []
         mod = ModqueueModerator(comment)
         assert mod.moderate(rule), "User reports (only) not passing when only a match exists"
 
@@ -46,6 +49,7 @@ class ModeratorTestCase(unittest.TestCase):
             ['abcde', 1],
             ['edcba', 1]
         ]
+        comment.mod_reports = []
         mod = ModqueueModerator(comment)
         self.assertFalse(mod.moderate(rule), "User reports (only) passing when a match exists alongside a non-match")
 
@@ -54,5 +58,30 @@ class ModeratorTestCase(unittest.TestCase):
             ['fghij', 1],
             ['edcba', 1]
         ]
+        comment.mod_reports = []
         mod = ModqueueModerator(comment)
         self.assertFalse(mod.moderate(rule), "User reports (only) are passing when the list does not contain the value")
+
+    def test_report_reasons_with_mod_reports(self):
+        rule = Rule({
+            'report_reason': 'abcde',
+            'action': 'approve'
+        })
+
+        comment = helpers.comment()
+        comment.author.moderated = MagicMock(return_value=[])
+        comment.user_reports = [
+            ['fghij', 1],
+        ]
+        comment.mod_reports = [
+            ['abcde', 1]
+        ]
+        mod = ModqueueModerator(comment)
+        assert mod.moderate(rule), "Report reasons don't match against mod reports"
+
+        rule = Rule({
+            'report_reason': 'abcde',
+            'action': 'approve',
+            'moderators_exempt': True
+        })
+        self.assertFalse(mod.moderate(rule), "Report reasons include mod reports even when moderators_exempt is true")
