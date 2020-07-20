@@ -19,6 +19,7 @@ class ModqueueModerator(Moderator):
     @classmethod
     def contains(cls, values, test, options):
         for value in values:
+            # use full_exact, so options like case-sensitive and regexp still work
             if cls.full_exact(value, test, options):
                 return True
 
@@ -30,6 +31,7 @@ class ModqueueModerator(Moderator):
             return False
 
         for value in values:
+            # use full_exact, so options like case-sensitive and regexp still work
             if not cls.full_exact(value, test, options):
                 return False
 

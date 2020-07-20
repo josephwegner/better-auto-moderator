@@ -3,11 +3,14 @@ from better_auto_moderator.reddit import subreddit, reddit
 from better_auto_moderator.moderators.comment_moderator import CommentModerator
 from better_auto_moderator.moderators.modqueue_moderator import ModqueueModerator
 
+### Not pushing rules for now, until we're ready to actually get all rules into BAM
+### I'm not convinced mods will want to write all rules in BAM yet
 #config.push_rules()
 
 rules_by_type = {}
 rules = config.get_bam_rules()
 
+# We have to open separate streams for each type of content, so separate them out now
 for rule in rules:
     if rule.type not in rules_by_type:
         rules_by_type[rule.type] = []
@@ -30,9 +33,6 @@ if "comment" in rules_by_type:
         for rule in rules:
             if moderator.moderate(rule):
                 break
-    #submission = reddit.submission("hdr2ap")
-    #print("evaluating", submission)
-    #print(CommentModerator(submission).moderate(rules[0]))
 
 if "modqueue" in rules_by_type:
     rules = sorted(rules_by_type['modqueue'], key=lambda rule: rule.priority)

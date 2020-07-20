@@ -1,12 +1,15 @@
 import yaml
 
 class Rule:
+    # We'll flip this to True whenever a rule uses options that are not supported
+    # by Automoderator. This flag is used for BAM to know which rules it should implement
     requires_bam = False
 
     def __init__(self, config):
         self.raw = config
         self.parse(self.raw)
 
+    # Output the rules in a YAML format that Automoderator will understand
     def to_reddit(self):
         config = dict(self.config)
         config['priority'] = self.priority
@@ -15,17 +18,23 @@ class Rule:
         return yaml.dump(config, Dumper=yaml.Dumper)
 
     def parse(self, config):
+        # Defaults
         self.priority = 0
         self.type = 'any'
         self.config = { }
 
         for key in config.keys():
+            # This class has a bunch of parse_* methods that will be used to parse the rule
+            # For instance, if a rule has `type: submission`, that will be parsed by
+            # the `parse_type` function.
+            # If a parser doesn't exist, just add the line straight into the config
             parser_name = "parse_%s" % key
             if hasattr(self, parser_name):
                 getattr(self, parser_name)(config.get(key))
             else:
                 self.config[key] = config.get(key)
 
+        # standards are propreitary lists owned by Reddit. We don't have access, so we BAM can't implement them
         if self.requires_bam and self.config.hasattr('standard'):
             raise Exception('Standard check defined for a BAM rule. Standards are not supported by BAM.')
 
@@ -43,5 +52,6 @@ class Rule:
     def parse_priority(self, priority):
         self.priority = priority
 
+    # `bam: true` can be set in a rule to force it to be run by BAM. This is good for testing.
     def parse_bam(self, value):
         self.requires_bam = value

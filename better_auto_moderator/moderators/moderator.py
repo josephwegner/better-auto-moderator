@@ -15,20 +15,10 @@ class Moderator:
         'remove': 'remove'
     }
 
-    """
-        global_checks = {
-            'id',
-            'body'
-            'reports'
-            'body_longer_than'
-            'body_shorter_than'
-            'is_edited'
-        }
-    """
-
     def __init__(self, item):
         self.item = item
 
+    # Available at `self.checks`, without needing to call the func
     @cached_property
     def checks(self):
         return ModeratorChecks(self)
@@ -48,6 +38,7 @@ class Moderator:
             if self.item.subreddit in self.item.author.moderated():
                 return False
 
+        # Run all of the checks in this rule to see if the item matches
         if not self.check(rule):
             return False
 
@@ -69,38 +60,52 @@ class Moderator:
 
         return True
 
+    # checks can be set specifically here, if you want to run tests on a sub-group, like "author"
+    # If it's not defined, we'll use whatever is defined in the `checks` method
     def check(self, rule, checks=None):
         if checks is None:
             checks = self.checks
 
         for key in rule.config:
             check_name = key
+            # Search for options, like (regex) or (case-sensitive)
             options_re = re.search(r'.*\(([a-z, \-]+)\)', key)
             options = []
             if options_re is not None:
+                # Strip whitespace off the options, and remove them from check_name
                 options = [opt.strip() for opt in options_re.group(1).split(',')]
                 check_name = re.search(r'([^\s]*)\s?\(', key).group(1)
 
+            # Checks can have a ~ before them to indicate match IF THIS RULE IS FALSE.
             check_truthiness = True
             if check_name[0] == '~':
                 check_name = check_name[1:]
                 check_truthiness = False
 
+            # Checks can be combined, like `body+author: butts`. These are OR conditions, not AND
             for name in check_name.split('+'):
                 check = getattr(checks, name)
                 if callable(check):
                     values = rule.config[key]
+                    # Multiple values can be passed in, as an array. We should force single values
+                    # into an "array", just so the code runs in a similar way regardless
+                    # of inputs
                     if not isinstance(values, list):
                         values = [values]
 
+                    passed = False
                     for val in values:
                         if isinstance(val, str):
                             val = ModeratorPlaceholders.replace(val, self.item)
 
                         if check(val, rule, options) is check_truthiness:
-                            return True
+                            passed = True
 
-            return False
+                    if not passed:
+                        return False
+
+            # None of checks failed, so this must be a pass!
+            return True
 
     def approve(self, rule):
         print("Approving %s %s" % (type(self.item).__name__, self.item.id))
@@ -125,6 +130,7 @@ class Moderator:
 
     @staticmethod
     def numeric(value, test, options):
+        # Pull the numeric value out of the test string
         number = float(re.search(r'[0-9\-.]+', test).group(0))
         if '>' in test:
             return value > number
@@ -133,12 +139,14 @@ class Moderator:
         else:
             return value == number
 
-
+# We're going to wrap all the getters with this decorator, which figures out how
+# to compare the values
 def comparator(default='full-exact'):
     def decorator_comparator(func):
         wraps(func)
         def wrapper_comparator(inst, value, rule, options):
             comparator = getattr(inst.moderator, default.replace('-', '_'))
+            # Check if any of the options are actually comparators
             for option in options:
                 if hasattr(inst.moderator, option.replace('-', '_')):
                     comparator = getattr(inst.moderator, option.replace('-', '_'))
@@ -175,12 +183,14 @@ class ModeratorAuthorChecks(AbstractChecks):
 class ModeratorPlaceholders():
     @classmethod
     def replace(cls, str, item):
+        # Find anything like {{word}} in the string
         match = re.search(r'{{(.*?)}}', str)
         if match is None:
             return str
 
         replaced = str
         for group in match.groups():
+            # If a placeholder exists, use it!
             if hasattr(cls, group):
                 inject = getattr(cls, group)(item)
                 replaced = str.replace("{{%s}}" % group, inject)

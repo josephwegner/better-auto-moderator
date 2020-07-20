@@ -5,6 +5,7 @@ import better_auto_moderator.reddit
 
 rules = []
 
+# Read the rules out of /etc/automod.yaml
 def get_rules():
     global rules
     rules = []
@@ -41,5 +42,6 @@ def push_rules():
     for rule in get_automod_rules():
         rules_for_reddit.append(rule.to_reddit())
 
+    # Little bit of formatting here to make it more readable
     full_yaml = "\n---\n\n".join(rules_for_reddit)
     reddit.update_automod_config(full_yaml)
