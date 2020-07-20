@@ -1,5 +1,6 @@
 import re
 from functools import cached_property, wraps
+from better_auto_moderator.rule import Rule
 
 class Moderator:
     moderators_exempt_actions = [
@@ -68,15 +69,17 @@ class Moderator:
 
         return True
 
-    def check(self, rule):
+    def check(self, rule, checks=None):
+        if checks is None:
+            checks = self.checks
+
         for key in rule.config:
             check_name = key
-            options_re = re.search(r'.*\(([a-z, ]+)\)', key)
+            options_re = re.search(r'.*\(([a-z, \-]+)\)', key)
             options = []
             if options_re is not None:
                 options = [opt.strip() for opt in options_re.group(1).split(',')]
                 check_name = re.search(r'([^\s]*)\s?\(', key).group(1)
-
 
             check_truthiness = True
             if check_name[0] == '~':
@@ -84,7 +87,7 @@ class Moderator:
                 check_truthiness = False
 
             for name in check_name.split('+'):
-                check = getattr(self.checks, name)
+                check = getattr(checks, name)
                 if callable(check):
                     if check(rule.config[key], rule, options) is check_truthiness:
                         return True
@@ -107,10 +110,21 @@ class Moderator:
 
     @staticmethod
     def full_exact(value, test, options):
-        if not 'case-sensitive' in options:
+        if 'case-sensitive' in options:
             return value == test
         else:
-            return value.lower == test.lower
+            return value.lower() == test.lower()
+
+    @staticmethod
+    def numeric(value, test, options):
+        number = float(re.search(r'[0-9\-.]+', test).group(0))
+        print(value, test, number)
+        if '>' in test:
+            return value > number
+        elif '<' in test:
+            return value < number
+        else:
+            return value == number
 
 
 def comparator(default='full-exact'):
@@ -126,11 +140,12 @@ def comparator(default='full-exact'):
         return wrapper_comparator
     return decorator_comparator
 
-class ModeratorChecks:
+class AbstractChecks:
     def __init__(self, moderator):
         self.moderator = moderator
         self.item = moderator.item
 
+class ModeratorChecks(AbstractChecks):
     @comparator(default='full-exact')
     def id(self, rule, options):
         return self.item.id
@@ -138,3 +153,14 @@ class ModeratorChecks:
     @comparator(default='full-exact')
     def body(self, rule, options):
         return self.item.body
+
+    def author(self, value, rule, options):
+        author_checks = ModeratorAuthorChecks(self.moderator)
+        author_rule = Rule(value)
+        return self.moderator.check(author_rule, checks=author_checks)
+
+
+class ModeratorAuthorChecks(AbstractChecks):
+    @comparator(default='numeric')
+    def post_karma(self, rule, options):
+        return self.item.author.link_karma

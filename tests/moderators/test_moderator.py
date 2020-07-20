@@ -51,13 +51,14 @@ class ModeratorTestCase(unittest.TestCase):
             'id+body': 'abcde',
             'action': 'remove'
         })
-        assert mod.moderate(rule), "Matches when checks are combined"
+        assert mod.moderate(rule), "Matches fail when checks are combined"
 
         rule = Rule({
             'id+body': 'Hello, world!',
             'action': 'remove'
         })
-        assert mod.moderate(rule), "Matches when checks are combined"
+        print('start')
+        assert mod.moderate(rule), "Matches fail when checks are combined"
 
         rule = Rule({
             'id+body': 'not there',
@@ -95,7 +96,7 @@ class ModeratorTestCase(unittest.TestCase):
         })
         assert mod.moderate(rule), "Doesn't match when validity is default, but there's no actual match"
 
-    def lowercase_checks(self):
+    def test_lowercase_checks(self):
         comment = helpers.comment()
         mod = Moderator(comment)
 
@@ -110,3 +111,23 @@ class ModeratorTestCase(unittest.TestCase):
             'action': 'remove'
         })
         self.assertFalse(mod.moderate(rule), "full-text matches even when some letters are uppercase and case-sensitive is on")
+
+    def test_author_checks(self):
+        comment = helpers.comment()
+        mod = Moderator(comment)
+
+        rule = Rule({
+            'author': {
+                'post_karma': '> 5'
+            },
+            'action': 'remove'
+        })
+        assert mod.moderate(rule), "basic author checks are failing"
+
+        rule = Rule({
+            'author': {
+                'post_karma': '> 15'
+            },
+            'action': 'remove'
+        })
+        self.assertFalse(mod.moderate(rule), "basic author checks are throwing false positive")
