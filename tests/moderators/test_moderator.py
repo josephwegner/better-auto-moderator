@@ -158,3 +158,11 @@ class ModeratorTestCase(unittest.TestCase):
             'action': 'remove'
         })
         assert mod.moderate(rule), "Author placeholder is not replaced"
+
+        comment.body = "Hello, %s, how are you %s?" % (comment.author.name, comment.author.name)
+
+        rule = Rule({
+            'body': 'Hello, {{author}}, how are you {{author}}?',
+            'action': 'remove'
+        })
+        assert mod.moderate(rule), "Author placeholder is not replaced when there are multiple matches"
