@@ -83,7 +83,12 @@ class Moderator:
                 check_truthiness = False
 
             # Checks can be combined, like `body+author: butts`. These are OR conditions, not AND
+            passed = False
             for name in check_name.split('+'):
+                if not hasattr(checks, name):
+                    passed = True
+                    break
+
                 check = getattr(checks, name)
                 if callable(check):
                     values = rule.config[key]
@@ -93,19 +98,17 @@ class Moderator:
                     if not isinstance(values, list):
                         values = [values]
 
-                    passed = False
                     for val in values:
                         if isinstance(val, str):
                             val = ModeratorPlaceholders.replace(val, self.item)
 
                         if check(val, rule, options) is check_truthiness:
                             passed = True
+            if not passed:
+                return False
 
-                    if not passed:
-                        return False
-
-            # None of checks failed, so this must be a pass!
-            return True
+        # None of checks failed, so this must be a pass!
+        return True
 
     def approve(self, rule):
         print("Approving %s %s" % (type(self.item).__name__, self.item.id))
