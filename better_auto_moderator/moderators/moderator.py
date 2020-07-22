@@ -129,6 +129,8 @@ class Moderator:
         if not isinstance(values, list):
             values = [values]
 
+        values = [value for value in values if value is not None]
+
         if not 'case-sensitive' in options:
             values = [value.lower() for value in values]
             test = test.lower()
