@@ -7,6 +7,9 @@ class Rule:
 
     def __init__(self, config):
         self.raw = config
+        self.config = {}
+        self.type = 'any'
+        self.priority = 0
         self.parse(self.raw)
 
     # Output the rules in a YAML format that Automoderator will understand
@@ -18,11 +21,6 @@ class Rule:
         return yaml.dump(config, Dumper=yaml.Dumper)
 
     def parse(self, config):
-        # Defaults
-        self.priority = 0
-        self.type = 'any'
-        self.config = { }
-
         for key in config.keys():
             # This class has a bunch of parse_* methods that will be used to parse the rule
             # For instance, if a rule has `type: submission`, that will be parsed by
@@ -35,7 +33,7 @@ class Rule:
                 self.config[key] = config.get(key)
 
         # standards are propreitary lists owned by Reddit. We don't have access, so we BAM can't implement them
-        if self.requires_bam and self.config.hasattr('standard'):
+        if self.requires_bam and 'standard' in self.config:
             raise Exception('Standard check defined for a BAM rule. Standards are not supported by BAM.')
 
     def parse_type(self, type):

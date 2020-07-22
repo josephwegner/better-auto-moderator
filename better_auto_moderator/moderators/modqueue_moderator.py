@@ -2,8 +2,6 @@ from functools import cached_property
 from better_auto_moderator.moderators.moderator import Moderator, ModeratorChecks, comparator
 
 class ModqueueModerator(Moderator):
-    def __init__(self, item):
-        super().__init__(item)
 
     @cached_property
     def checks(self):

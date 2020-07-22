@@ -27,5 +27,24 @@ def redditor():
 
     return user
 
+def post():
+    post = praw.models.Submission({}, None, None, {
+        'id': 'fghij',
+        'title': 'A Post',
+        'body': 'This is a post',
+        'author': redditor(),
+        'domain': "self.%s" % subreddit().name,
+        'subreddit': subreddit().name
+    })
+    sub = PropertyMock(return_value=subreddit())
+    type(post).subreddit = sub
+    post.author.moderated = MagicMock(return_value=[])
+    post.mod.approve = MagicMock(return_value=True)
+    post.mod.remove = MagicMock(return_value=True)
+
+    return post
+
 def subreddit():
-    return praw.models.Subreddit({}, 'BAMTest')
+    subreddit = praw.models.Subreddit({}, 'BAMTest')
+    subreddit.name = 'BAMTest'
+    return subreddit

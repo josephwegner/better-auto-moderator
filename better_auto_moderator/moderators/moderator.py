@@ -125,14 +125,41 @@ class Moderator:
             self.item.mod.ignore_reports()
 
     @staticmethod
-    def full_exact(value, test, options):
-        if 'case-sensitive' in options:
-            return value == test
-        else:
-            return value.lower() == test.lower()
+    def full_exact(values, test, options):
+        if not isinstance(values, list):
+            values = [values]
+
+        if not 'case-sensitive' in options:
+            values = [value.lower() for value in values]
+            test = test.lower()
+
+        for value in values:
+            if value == test:
+                return True
+
+        return False
+
+    @classmethod
+    def includes_word(cls, value, test, options):
+        words = re.findall(r'\w+', value)
+        for word in words:
+            if cls.full_exact(word, test, options):
+                return True
+
+        return False
+
+    @classmethod
+    def ends_with(cls, value, test, options):
+        if 'regex' in options:
+            raise Exception("ends_with comparator can not use the regex option")
+
+        length = len(test)
+        chars = value[length * -1 :]
+        return cls.full_exact(chars, test, options)
 
     @staticmethod
     def numeric(value, test, options):
+        test = str(test)
         # Pull the numeric value out of the test string
         number = float(re.search(r'[0-9\-.]+', test).group(0))
         if '>' in test:
@@ -146,7 +173,7 @@ class Moderator:
 # to compare the values
 def comparator(default='full-exact'):
     def decorator_comparator(func):
-        wraps(func)
+        @wraps(func)
         def wrapper_comparator(inst, value, rule, options):
             comparator = getattr(inst.moderator, default.replace('-', '_'))
             # Check if any of the options are actually comparators
@@ -168,9 +195,19 @@ class ModeratorChecks(AbstractChecks):
     def id(self, rule, options):
         return self.item.id
 
-    @comparator(default='full-exact')
+    @comparator(default='includes-word')
     def body(self, rule, options):
+        if hasattr(self.item, 'crosspost_parent'):
+            return self.item.crosspost_parent.body
+
         return self.item.body
+
+    @comparator(default='full-exact')
+    def url(self, rule, options):
+        if hasattr(self.item, 'crosspost_parent'):
+            return self.item.crosspost_parent.url
+
+        return self.item.url
 
     def author(self, value, rule, options):
         author_checks = ModeratorAuthorChecks(self.moderator)

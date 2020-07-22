@@ -64,20 +64,19 @@ class ModeratorTestCase(unittest.TestCase):
         mod = Moderator(comment)
 
         rule = Rule({
-            'id+body': 'abcde',
+            'id+body (full-exact)': 'abcde',
             'action': 'remove'
         })
         assert mod.moderate(rule), "Matches fail when checks are combined"
 
         rule = Rule({
-            'id+body': 'Hello, world!',
+            'id+body (full-exact)': 'Hello, world!',
             'action': 'remove'
         })
-        print('start')
         assert mod.moderate(rule), "Matches fail when checks are combined"
 
         rule = Rule({
-            'id+body': 'not there',
+            'id+body (full-exact)': 'not there',
             'action': 'remove'
         })
         self.assertFalse(mod.moderate(rule), "Matches when checks are combined")
@@ -154,7 +153,7 @@ class ModeratorTestCase(unittest.TestCase):
         mod = Moderator(comment)
 
         rule = Rule({
-            'body': 'Hello, {{author}}',
+            'body (full-exact)': 'Hello, {{author}}',
             'action': 'remove'
         })
         assert mod.moderate(rule), "Author placeholder is not replaced"
@@ -162,7 +161,7 @@ class ModeratorTestCase(unittest.TestCase):
         comment.body = "Hello, %s, how are you %s?" % (comment.author.name, comment.author.name)
 
         rule = Rule({
-            'body': 'Hello, {{author}}, how are you {{author}}?',
+            'body (full-exact)': 'Hello, {{author}}, how are you {{author}}?',
             'action': 'remove'
         })
         assert mod.moderate(rule), "Author placeholder is not replaced when there are multiple matches"

@@ -11,8 +11,11 @@ def get_rules():
     rules = []
     with open(os.path.join(os.getcwd(), 'etc', 'automod.yaml'), 'r') as file:
         full_text = file.read()
-        raw_rules = full_text.split('---')
+        raw_rules = [rule.strip() for rule in full_text.split('---')]
         for raw in raw_rules:
+            if len(raw) == 0:
+                continue
+                
             rules.append(Rule(yaml.load(raw, Loader=yaml.Loader)))
 
         return rules
