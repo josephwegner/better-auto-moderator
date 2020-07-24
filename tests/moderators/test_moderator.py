@@ -3,6 +3,7 @@ from mock import patch, MagicMock
 from tests import helpers
 from better_auto_moderator.moderators.moderator import Moderator
 from better_auto_moderator.rule import Rule
+from better_auto_moderator.reddit import reddit
 
 class ModeratorTestCase(unittest.TestCase):
 
@@ -165,3 +166,62 @@ class ModeratorTestCase(unittest.TestCase):
             'action': 'remove'
         })
         assert mod.moderate(rule), "Author placeholder is not replaced when there are multiple matches"
+
+
+    def test_author_flair_text(self):
+        post = helpers.post()
+        rule = Rule({
+            'author': {
+                'flair_text': 'test'
+            },
+            'action': 'remove'
+        })
+        mod = Moderator(post)
+
+        flair_mock = MagicMock(return_value={ 'flair_text': 'test' })
+        post.subreddit.flair = flair_mock
+
+        assert mod.moderate(rule), "Author flair_text not matching"
+
+        flair_mock.return_value = { 'flair_text': 'nomatch' }
+        self.assertFalse(mod.moderate(rule), "Author flair_text matching as a false positive")
+
+
+    def test_author_flair_css_class(self):
+        post = helpers.post()
+        rule = Rule({
+            'author': {
+                'flair_css_class': 'test'
+            },
+            'action': 'remove'
+        })
+        mod = Moderator(post)
+
+        flair_mock = MagicMock(return_value={ 'flair_css_class': 'test' })
+        post.subreddit.flair = flair_mock
+
+        assert mod.moderate(rule), "Author flair_css_class not matching"
+
+        flair_mock.return_value = { 'flair_css_class': 'nomatch' }
+        self.assertFalse(mod.moderate(rule), "Author flair_css_class matching as a false positive")
+
+    def test_author_flair_template_id(self):
+        post = helpers.post()
+        rule = Rule({
+            'author': {
+                'flair_template_id': 'test'
+            },
+            'action': 'remove'
+        })
+        mod = Moderator(post)
+
+        flair_mock = MagicMock(return_value= { 'current': { 'flair_template_id': 'test' } })
+        old_post = reddit.post
+        reddit.post = flair_mock
+
+        assert mod.moderate(rule), "Author flair_template_id not matching"
+
+        flair_mock.return_value = { 'current': { 'flair_template_id': 'nomatch' } }
+        self.assertFalse(mod.moderate(rule), "Author flair_template_id matching as a false positive")
+
+        reddit.post = old_post

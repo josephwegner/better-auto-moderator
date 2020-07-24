@@ -34,7 +34,8 @@ def post():
         'body': 'This is a post',
         'author': redditor(),
         'domain': "self.%s" % subreddit().name,
-        'subreddit': subreddit().name
+        'subreddit': subreddit().name,
+        'media': None
     })
     sub = PropertyMock(return_value=subreddit())
     type(post).subreddit = sub

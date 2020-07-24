@@ -1,6 +1,7 @@
 import re
 from functools import cached_property, wraps
 from better_auto_moderator.rule import Rule
+from better_auto_moderator.reddit import reddit
 
 class Moderator:
     moderators_exempt_actions = [
@@ -43,7 +44,7 @@ class Moderator:
             return False
 
         if 'action' not in rule.config:
-            print("No rule defined, skipping action for item %s" % self.item.id)
+            print("No action defined, skipping rule for item %s" % self.item.id)
             return False
         action = rule.config['action']
 
@@ -102,7 +103,10 @@ class Moderator:
                         if isinstance(val, str):
                             val = ModeratorPlaceholders.replace(val, self.item)
 
-                        if check(val, rule, options) is check_truthiness:
+                        check_val = check(val, rule, options)
+                        if check_val is None:
+                            return False
+                        elif check_val is check_truthiness:
                             passed = True
             if not passed:
                 return False
@@ -173,7 +177,7 @@ class Moderator:
 
 # We're going to wrap all the getters with this decorator, which figures out how
 # to compare the values
-def comparator(default='full-exact'):
+def comparator(default='full-exact', **kwargs):
     def decorator_comparator(func):
         @wraps(func)
         def wrapper_comparator(inst, value, rule, options):
@@ -183,7 +187,12 @@ def comparator(default='full-exact'):
                 if hasattr(inst.moderator, option.replace('-', '_')):
                     comparator = getattr(inst.moderator, option.replace('-', '_'))
 
-            return comparator(func(inst, rule, options), value, options)
+            # Allow comparators to set a value that will automatically cause the check to be skipped
+            func_value = func(inst, rule, options)
+            if 'skip_if' in kwargs and kwargs.get('skip_if') == func_value:
+                return None
+
+            return comparator(func_value, value, options)
         return wrapper_comparator
     return decorator_comparator
 
@@ -193,7 +202,7 @@ class AbstractChecks:
         self.item = moderator.item
 
 class ModeratorChecks(AbstractChecks):
-    @comparator(default='full-exact')
+    @comparator(default='full-exact', skip_if=None)
     def id(self, rule, options):
         return self.item.id
 
@@ -221,6 +230,31 @@ class ModeratorAuthorChecks(AbstractChecks):
     @comparator(default='numeric')
     def post_karma(self, rule, options):
         return self.item.author.link_karma
+
+    @comparator(default='full-exact')
+    def id(self, rule, options):
+        return self.item.author.id
+
+    @comparator(default='includes-word')
+    def id(self, rule, options):
+        return self.item.author.name
+
+    @comparator(default='full-exact')
+    def flair_template_id(self, rule, options):
+        url = "r/%s/api/flairselector?name=%s" % (self.item.subreddit.name, self.item.author.name)
+        flair = reddit.post(url)['current']
+        if 'flair_template_id' in flair:
+            return flair['flair_template_id']
+        else:
+            return ''
+
+    @comparator(default='full-exact')
+    def flair_text(self, rule, options):
+        return self.item.subreddit.flair(self.item.author.name)['flair_text']
+
+    @comparator(default='full-exact')
+    def flair_css_class(self, rule, options):
+        return self.item.subreddit.flair(self.item.author.name)['flair_css_class']
 
 class ModeratorPlaceholders():
     @classmethod

@@ -57,3 +57,57 @@ class PostModeratorChecks(ModeratorChecks):
             return len(self.item.poll_data.options)
         else:
             return 0
+
+    @comparator(default='includes-word', skip_if=None)
+    def crosspost_id(self, rule, options):
+        if hasattr(self.item, 'crosspost_parent'):
+            return self.item.crosspost_parent.id
+        else:
+            return None
+
+    @comparator(default='includes-word', skip_if=None)
+    def crosspost_title(self, rule, options):
+        if hasattr(self.item, 'crosspost_parent'):
+            return self.item.crosspost_parent.title
+        else:
+            return None
+
+    @comparator(default='includes-word', skip_if=None)
+    def media_author(self, rule, options):
+        if self.item.media is not None:
+            if 'oembed' in self.item.media and 'author_name' in self.item.media['oembed']:
+                return self.item.media['oembed']['author_name']
+            else:
+                return ''
+        else:
+            return None
+
+    @comparator(default='includes-word', skip_if=None)
+    def media_author_url(self, rule, options):
+        if self.item.media is not None:
+            if 'oembed' in self.item.media and 'author_url' in self.item.media['oembed']:
+                return self.item.media['oembed']['author_url']
+            else:
+                return ''
+        else:
+            return None
+
+    @comparator(default='includes-word', skip_if=None)
+    def media_title(self, rule, options):
+        if self.item.media is not None:
+            if 'oembed' in self.item.media and 'title' in self.item.media['oembed']:
+                return self.item.media['oembed']['title']
+            else:
+                return ''
+        else:
+            return None
+
+    @comparator(default='includes-word', skip_if=None)
+    def media_description(self, rule, options):
+        if self.item.media is not None:
+            if 'oembed' in self.item.media and 'description' in self.item.media['oembed']:
+                return self.item.media['oembed']['description']
+            else:
+                return ''
+        else:
+            return None
