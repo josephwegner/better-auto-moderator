@@ -135,12 +135,43 @@ class Moderator:
 
         values = [value for value in values if value is not None]
 
+        if 'regex' in options:
+            for value in values:
+                if re.fullmatch(test, value) is not None:
+                    return True
+
+            return False
+
         if not 'case-sensitive' in options:
             values = [value.lower() for value in values]
             test = test.lower()
 
         for value in values:
             if value == test:
+                return True
+
+        return False
+
+    @staticmethod
+    def includes(values, test, options):
+        if not isinstance(values, list):
+            values = [values]
+
+        values = [value for value in values if value is not None]
+
+        if 'regex' in options:
+            for value in values:
+                if re.match(test, value) is not None:
+                    return True
+
+            return False
+
+        if not 'case-sensitive' in options:
+            values = [value.lower() for value in values]
+            test = test.lower()
+
+        for value in values:
+            if test in value:
                 return True
 
         return False
@@ -162,6 +193,22 @@ class Moderator:
         length = len(test)
         chars = value[length * -1 :]
         return cls.full_exact(chars, test, options)
+
+
+    @classmethod
+    def starts_with(cls, value, test, options):
+        if 'regex' in options:
+            raise Exception("ends_with comparator can not use the regex option")
+
+        length = len(test)
+        chars = value[: length]
+        return cls.full_exact(chars, test, options)
+
+    @classmethod
+    def full_text(cls, value, test, options):
+        value = re.sub(r'^[^A-Za-z0-9]*', '', value)
+        value = re.sub(r'[^A-Za-z0-9]*$', '', value)
+        return cls.full_exact(value, test, options)
 
     @staticmethod
     def numeric(value, test, options):
@@ -213,7 +260,7 @@ class ModeratorChecks(AbstractChecks):
 
         return self.item.body
 
-    @comparator(default='full-exact')
+    @comparator(default='includes')
     def url(self, rule, options):
         if hasattr(self.item, 'crosspost_parent'):
             return self.item.crosspost_parent.url

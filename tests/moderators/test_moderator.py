@@ -225,3 +225,90 @@ class ModeratorTestCase(unittest.TestCase):
         self.assertFalse(mod.moderate(rule), "Author flair_template_id matching as a false positive")
 
         reddit.post = old_post
+
+    def test_regex_match(self):
+        comment = helpers.comment()
+        comment.body = 'Hello, foo! How are you?'
+        mod = Moderator(comment)
+
+        rule = Rule({
+            'body (full-exact, regex)': 'Hello, [A-za-z]+! How are you\\?',
+            'action': 'remove'
+        })
+        assert mod.moderate(rule), "Regex match failing to match"
+
+        comment.body = 'Hello, Foo Bar! How are you?'
+        self.assertFalse(mod.moderate(rule), "Regex match matching as false positive")
+
+    def test_starts_with(self):
+        comment = helpers.comment()
+        mod = Moderator(comment)
+
+        rule = Rule({
+            'body (starts-with)': 'Hello',
+            'action': 'remove'
+        })
+        assert mod.moderate(rule), "starts-with match failing to match"
+
+        comment.body = 'Wassup, buddy?'
+        self.assertFalse(mod.moderate(rule), "starts-with match matching as false positive")
+
+    def test_full_text(self):
+        comment = helpers.comment()
+        comment.body = ' .# Hello, world! # ..'
+        mod = Moderator(comment)
+
+        rule = Rule({
+            'body (full-text)': 'Hello, world',
+            'action': 'remove'
+        })
+        assert mod.moderate(rule), "full-text match failing to match"
+
+        comment.body = ' .# Hello, world'
+        assert mod.moderate(rule), "full-text match failing with just leading symbols"
+
+        comment.body = ' Hello, world! # ..'
+        assert mod.moderate(rule), "full-text match failing with just following symbols"
+
+        comment.body = ' .# Hello, world! # Cya! ..'
+        self.assertFalse(mod.moderate(rule), "full-text match matching as false positive")
+
+    def test_include(self):
+        comment = helpers.comment()
+        mod = Moderator(comment)
+
+        rule = Rule({
+            'body (includes)': 'Ell',
+            'action': 'remove'
+        })
+        assert mod.moderate(rule), "include match failing to match"
+
+        rule = Rule({
+            'body (includes)': 'lo, ',
+            'action': 'remove'
+        })
+        assert mod.moderate(rule), "include match failing to match with word boundaries"
+
+        comment.body = "Hello world"
+        self.assertFalse(mod.moderate(rule), "include match matching as a false positive")
+
+    def test_includes_regex(self):
+        comment = helpers.comment()
+        mod = Moderator(comment)
+
+        rule = Rule({
+            'body (includes, regex)': 'Hello!?',
+            'action': 'remove'
+        })
+        assert mod.moderate(rule), "include match with regex failing to match"
+
+
+    def test_full_exact_regex(self):
+        comment = helpers.comment()
+        mod = Moderator(comment)
+
+        rule = Rule({
+            'body (full-exact, regex)': 'Hello,? world!?',
+            'action': 'remove'
+        })
+        assert mod.moderate(rule), "full_exact match with regex failing to match"

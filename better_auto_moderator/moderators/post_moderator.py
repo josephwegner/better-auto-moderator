@@ -72,7 +72,7 @@ class PostModeratorChecks(ModeratorChecks):
         else:
             return None
 
-    @comparator(default='includes-word', skip_if=None)
+    @comparator(default='full-exact', skip_if=None)
     def media_author(self, rule, options):
         if self.item.media is not None:
             if 'oembed' in self.item.media and 'author_name' in self.item.media['oembed']:
@@ -82,7 +82,7 @@ class PostModeratorChecks(ModeratorChecks):
         else:
             return None
 
-    @comparator(default='includes-word', skip_if=None)
+    @comparator(default='includes', skip_if=None)
     def media_author_url(self, rule, options):
         if self.item.media is not None:
             if 'oembed' in self.item.media and 'author_url' in self.item.media['oembed']:
