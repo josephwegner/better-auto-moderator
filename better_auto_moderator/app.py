@@ -2,6 +2,7 @@ import better_auto_moderator.config as config
 from better_auto_moderator.reddit import subreddit, reddit
 from better_auto_moderator.moderators.comment_moderator import CommentModerator
 from better_auto_moderator.moderators.modqueue_moderator import ModqueueModerator
+from datetime import datetime
 
 ### Not pushing rules for now, until we're ready to actually get all rules into BAM
 ### I'm not convinced mods will want to write all rules in BAM yet

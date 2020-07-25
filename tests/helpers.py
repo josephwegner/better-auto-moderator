@@ -8,7 +8,9 @@ def comment():
         'author': redditor()
     })
     sub = PropertyMock(return_value=subreddit())
+    submission = PropertyMock(return_value=post())
     type(comment).subreddit = sub
+    type(comment).submission = submission
     comment.user_reports = []
     comment.mod_reports = []
     comment.author.moderated = MagicMock(return_value=[])
@@ -31,7 +33,7 @@ def post():
     post = praw.models.Submission({}, None, None, {
         'id': 'fghij',
         'title': 'A Post',
-        'body': 'This is a post',
+        'selftext': 'This is a post',
         'author': redditor(),
         'domain': "self.%s" % subreddit().name,
         'subreddit': subreddit().name,

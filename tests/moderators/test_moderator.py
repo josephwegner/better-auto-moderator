@@ -4,6 +4,8 @@ from tests import helpers
 from better_auto_moderator.moderators.moderator import Moderator
 from better_auto_moderator.rule import Rule
 from better_auto_moderator.reddit import reddit
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
 
 class ModeratorTestCase(unittest.TestCase):
 
@@ -312,3 +314,184 @@ class ModeratorTestCase(unittest.TestCase):
             'action': 'remove'
         })
         assert mod.moderate(rule), "full_exact match with regex failing to match"
+
+    def test_reports(self):
+        rule = Rule({
+            'reports': 2,
+            'action': 'approve'
+        })
+
+        comment = helpers.comment()
+        comment.user_reports = [
+            ['abcde', 1],
+            ['edcba', 1]
+        ]
+        comment.mod_reports = []
+        mod = Moderator(comment)
+        assert mod.moderate(rule), "Reports (count) not passing when the list contains same number of values"
+
+        comment = helpers.comment()
+        comment.user_reports = [['fghij', 1]]
+        comment.mod_reports = [['edcba', 1]]
+        mod = Moderator(comment)
+        assert mod.moderate(rule), "Reports (count) are not passing when the list contains the appropriate value between user and mod reports"
+
+        comment.mod_reports = []
+        mod = Moderator(comment)
+        self.assertFalse(mod.moderate(rule), "Reports (count) matching as false positive")
+
+    def test_body_longer_than(self):
+        comment = helpers.comment()
+        comment.body = "Hello, world"
+        rule = Rule({
+            'body_longer_than': len(comment.body) - 1, # Removing 2 because the "!" will be removed
+            'action': 'approve'
+        })
+
+        mod = Moderator(comment)
+        assert mod.moderate(rule), "body_longer_than not matching"
+
+        comment.body = comment.body[:-1]
+        self.assertFalse(mod.moderate(rule), 'body_longer_than matching when lengths are equal')
+
+        comment.body = comment.body[:-1]
+        self.assertFalse(mod.moderate(rule), 'body_longer_than matching when the body is too short')
+
+    def test_body_shorter_than(self):
+        comment = helpers.comment()
+        rule = Rule({
+            'body_shorter_than': len(comment.body) + 1,
+            'action': 'approve'
+        })
+
+        mod = Moderator(comment)
+        assert mod.moderate(rule), "body_shorter_than not matching"
+
+        comment.body = comment.body + 'a'
+        self.assertFalse(mod.moderate(rule), 'body_shorter_than matching when lengths are equal')
+
+        comment.body = comment.body + 'a'
+        self.assertFalse(mod.moderate(rule), 'body_shorter_than matching when the body is too long')
+
+    def test_is_edited(self):
+        comment = helpers.comment()
+        rule = Rule({
+            'is_edited': True,
+            'action': 'approve'
+        })
+
+        comment.edited = True
+        mod = Moderator(comment)
+        assert mod.moderate(rule), "is_edited not matching"
+
+        comment.edited = False
+        self.assertFalse(mod.moderate(rule), "is_edited matching as false positive")
+
+    def test_crosspost_name_check(self):
+        old_submission = reddit.submission
+        og_post = helpers.post()
+        reddit.submission = MagicMock(return_value=og_post)
+
+        post = helpers.post()
+        rule = Rule({
+            'crosspost_subreddit': {
+                'name': 'Cross'
+            },
+            'action': 'approve'
+        })
+
+        mod = Moderator(post)
+        og_post.subreddit.name = "Cross Sub"
+        self.assertFalse(mod.moderate(rule), "crosspost_subreddit name matching even when post is not a crosspost")
+
+        post.crosspost_parent = 't3_abcde'
+        assert mod.moderate(rule), "crosspost_subreddit name not matching"
+
+        og_post.subreddit.name = "TestSub"
+        self.assertFalse(mod.moderate(rule), "crosspost_subreddit name matching as false positive")
+
+        reddit.submission = old_submission
+
+    def test_crosspost_is_nsfw_check(self):
+        old_submission = reddit.submission
+        og_post = helpers.post()
+        reddit.submission = MagicMock(return_value=og_post)
+
+        post = helpers.post()
+        rule = Rule({
+            'crosspost_subreddit': {
+                'is_nsfw': True
+            },
+            'action': 'approve'
+        })
+
+        mod = Moderator(post)
+        og_post.subreddit.over18 = True
+        self.assertFalse(mod.moderate(rule), "crosspost_subreddit is_nsfw matching even when post is not a crosspost")
+
+        post.crosspost_parent = 't3_abcde'
+        assert mod.moderate(rule), "crosspost_subreddit is_nsfw not matching"
+
+        og_post.subreddit.over18 = False
+        self.assertFalse(mod.moderate(rule), "crosspost_subreddit is_nsfw matching as false positive")
+
+        reddit.submission = old_submission
+
+    def test_account_age(self):
+        post = helpers.post()
+        mod = Moderator(post)
+
+        rule = Rule({
+            'author': {
+                'account_age': '> 10 minutes'
+            },
+            'action': 'approve'
+        })
+        post.author.created_utc = (datetime.today() + relativedelta(minutes=-11)).timestamp()
+        assert mod.moderate(rule), "account_age not matching for minutes"
+        post.author.created_utc = (datetime.today() + relativedelta(minutes=-9)).timestamp()
+        self.assertFalse(mod.moderate(rule), "account_age matching as false positive for minutes")
+
+        rule = Rule({
+            'author': {
+                'account_age': '> 10 hours'
+            },
+            'action': 'approve'
+        })
+        post.author.created_utc = (datetime.today() + relativedelta(hours=-11)).timestamp()
+        assert mod.moderate(rule), "account_age not matching for hours"
+        post.author.created_utc = (datetime.today() + relativedelta(hours=-9)).timestamp()
+        self.assertFalse(mod.moderate(rule), "account_age matching as false positive for hours")
+
+        rule = Rule({
+            'author': {
+                'account_age': '> 10 days'
+            },
+            'action': 'approve'
+        })
+        post.author.created_utc = (datetime.today() + relativedelta(days=-11)).timestamp()
+        assert mod.moderate(rule), "account_age not matching for days"
+        post.author.created_utc = (datetime.today() + relativedelta(days=-9)).timestamp()
+        self.assertFalse(mod.moderate(rule), "account_age matching as false positive for days")
+
+        rule = Rule({
+            'author': {
+                'account_age': '> 10 weeks'
+            },
+            'action': 'approve'
+        })
+        post.author.created_utc = (datetime.today() + relativedelta(weeks=-11)).timestamp()
+        assert mod.moderate(rule), "account_age not matching for weeks"
+        post.author.created_utc = (datetime.today() + relativedelta(weeks=-9)).timestamp()
+        self.assertFalse(mod.moderate(rule), "account_age matching as false positive for weeks")
+
+        rule = Rule({
+            'author': {
+                'account_age': '> 10 years'
+            },
+            'action': 'approve'
+        })
+        post.author.created_utc = (datetime.today() + relativedelta(years=-11)).timestamp()
+        assert mod.moderate(rule), "account_age not matching for years"
+        post.author.created_utc = (datetime.today() + relativedelta(years=-9)).timestamp()
+        self.assertFalse(mod.moderate(rule), "account_age matching as false positive for years")

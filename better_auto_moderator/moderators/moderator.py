@@ -2,6 +2,8 @@ import re
 from functools import cached_property, wraps
 from better_auto_moderator.rule import Rule
 from better_auto_moderator.reddit import reddit
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
 
 class Moderator:
     moderators_exempt_actions = [
@@ -204,6 +206,38 @@ class Moderator:
         chars = value[: length]
         return cls.full_exact(chars, test, options)
 
+    @staticmethod
+    def time(value, test, options):
+        number = float(re.search(r'[0-9\-.]+', test).group(0))
+        delta = None
+
+        if 'minutes' in test:
+            delta = relativedelta(minutes=number) # Do nothing, unit is minutes
+        elif 'hours' in test:
+            delta = relativedelta(hours=number)
+        elif 'weeks' in test:
+            delta = relativedelta(weeks=number)
+        elif 'years' in test:
+            delta = relativedelta(years=number)
+        elif 'months' in test:
+            delta = relativedelta(months=number)
+        else: # Default is days
+            delta = relativedelta(days=number)
+
+        comparison_time = value + delta
+        now = datetime.utcfromtimestamp(datetime.today().timestamp())
+
+        if '>=' in test or 'greater-than-equal' in options:
+            return now >= comparison_time
+        elif '<=' in test or 'less-than-equal' in options:
+            return now <= comparison_time
+        if '>' in test or 'greater-than' in options:
+            return now > comparison_time
+        elif '<' in test or 'less-than' in options:
+            return now < comparison_time
+        else:
+            return now == comparison_time
+
     @classmethod
     def full_text(cls, value, test, options):
         value = re.sub(r'^[^A-Za-z0-9]*', '', value)
@@ -215,12 +249,20 @@ class Moderator:
         test = str(test)
         # Pull the numeric value out of the test string
         number = float(re.search(r'[0-9\-.]+', test).group(0))
-        if '>' in test:
+        if '>=' in test or 'greater-than-equal' in options:
+            return value >= number
+        elif '<=' in test or 'less-than-equal' in options:
+            return value <= number
+        if '>' in test or 'greater-than' in options:
             return value > number
-        elif '<' in test:
+        elif '<' in test or 'less-than' in options:
             return value < number
         else:
             return value == number
+
+    @staticmethod
+    def bool(value, test, options):
+        return value is test
 
 # We're going to wrap all the getters with this decorator, which figures out how
 # to compare the values
@@ -255,15 +297,32 @@ class ModeratorChecks(AbstractChecks):
 
     @comparator(default='includes-word')
     def body(self, rule, options):
-        if hasattr(self.item, 'crosspost_parent'):
-            return self.item.crosspost_parent.body
-
         return self.item.body
+
+    @comparator(default='numeric')
+    def body_longer_than(self, rule, options):
+        options.append('greater-than')
+        body = self.body.__wrapped__(self, rule, options)
+
+        body = re.sub(r'^[^A-Za-z0-9]*', '', body)
+        body = re.sub(r'[^A-Za-z0-9]*$', '', body)
+
+        return len(body)
+
+    @comparator(default='numeric')
+    def body_shorter_than(self, rule, options):
+        options.append('less-than')
+        body = self.body.__wrapped__(self, rule, options)
+
+        body = re.sub(r'^[^A-Za-z0-9]*', '', body)
+        body = re.sub(r'[^A-Za-z0-9]*$', '', body)
+
+        return len(body)
 
     @comparator(default='includes')
     def url(self, rule, options):
         if hasattr(self.item, 'crosspost_parent'):
-            return self.item.crosspost_parent.url
+            return reddit.submission(self.item.crosspost_parent.split('_')[1]).url
 
         return self.item.url
 
@@ -272,8 +331,49 @@ class ModeratorChecks(AbstractChecks):
         author_rule = Rule(value)
         return self.moderator.check(author_rule, checks=author_checks)
 
+    def crosspost_subreddit(self, value, rule, options):
+        if not hasattr(self.item, 'crosspost_parent'):
+            return None
+
+        sub_checks = ModeratorCrosspostSubredditChecks(self.moderator)
+        sub_rule = Rule(value)
+        return self.moderator.check(sub_rule, checks=sub_checks)
+
+    @comparator(default='contains')
+    def report_reason(self, rule, options):
+        reports = self.item.user_reports
+        if not self.moderator.are_moderators_exempt(rule):
+            reports = reports + self.item.mod_reports
+
+        return [report[0] for report in reports]
+
+    @comparator(default='numeric')
+    def reports(self, rule, options):
+        options.append('greater-than-equal')
+        return len(self.item.user_reports) + len(self.item.mod_reports)
+
+    @comparator(default='bool')
+    def is_edited(self, rule, options):
+        return self.item.edited
+
+class ModeratorCrosspostSubredditChecks(AbstractChecks):
+    @cached_property
+    def parent(self):
+        return reddit.submission(self.item.crosspost_parent.split('_')[1])
+
+    @comparator(default='includes-word')
+    def name(self, rule, options):
+        return self.parent.subreddit.name
+
+    @comparator(default='bool')
+    def is_nsfw(self, rule, options):
+        return self.parent.subreddit.over18
 
 class ModeratorAuthorChecks(AbstractChecks):
+    @comparator(default='numeric')
+    def comment_karma(self, rule, options):
+        return self.item.author.comment_karma
+
     @comparator(default='numeric')
     def post_karma(self, rule, options):
         return self.item.author.link_karma
@@ -302,6 +402,22 @@ class ModeratorAuthorChecks(AbstractChecks):
     @comparator(default='full-exact')
     def flair_css_class(self, rule, options):
         return self.item.subreddit.flair(self.item.author.name)['flair_css_class']
+
+    @comparator(default='time')
+    def account_age(self, rule, options):
+        return datetime.utcfromtimestamp(self.item.author.created_utc)
+
+    @comparator(default='bool')
+    def is_gold(self, rule, options):
+        return self.item.author.is_gold
+
+    @comparator(default='bool')
+    def is_contributor(default='bool'):
+        return any(self.item.subreddit.contributor(redditor=self.item.author.name))
+
+    @comparator(default='bool')
+    def is_moderator(default='bool'):
+        return any(self.item.subreddit.moderator(redditor=self.item.author.name))
 
 class ModeratorPlaceholders():
     @classmethod

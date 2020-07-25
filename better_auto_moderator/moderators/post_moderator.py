@@ -1,5 +1,6 @@
 from functools import cached_property
 from better_auto_moderator.moderators.moderator import Moderator, ModeratorChecks, comparator
+from better_auto_moderator.reddit import reddit
 
 class PostModerator(Moderator):
 
@@ -17,13 +18,20 @@ class PostModerator(Moderator):
 
 class PostModeratorChecks(ModeratorChecks):
     @comparator(default='includes-word')
+    def body(self,rule, options):
+        if hasattr(self.item, 'crosspost_parent'):
+            return reddit.submission(self.item.crosspost_parent.split('_')[1]).selftext
+
+        return self.item.selftext
+
+    @comparator(default='includes-word')
     def title(self, rule, options):
         return self.item.title
 
     @comparator(default='domain')
     def domain(self, rule, options):
         if hasattr(self.item, 'crosspost_parent'):
-            return self.item.crosspost_parent.domain
+            return reddit.submission(self.item.crosspost_parent.split('_')[1]).domain
 
         return self.item.domain
 
@@ -61,14 +69,14 @@ class PostModeratorChecks(ModeratorChecks):
     @comparator(default='includes-word', skip_if=None)
     def crosspost_id(self, rule, options):
         if hasattr(self.item, 'crosspost_parent'):
-            return self.item.crosspost_parent.id
+            return self.item.crosspost_parent.split('_')[1]
         else:
             return None
 
     @comparator(default='includes-word', skip_if=None)
     def crosspost_title(self, rule, options):
         if hasattr(self.item, 'crosspost_parent'):
-            return self.item.crosspost_parent.title
+            return reddit.submission(self.item.crosspost_parent.split('_')[1]).title
         else:
             return None
 
@@ -111,3 +119,16 @@ class PostModeratorChecks(ModeratorChecks):
                 return ''
         else:
             return None
+
+    @comparator(default='bool')
+    def is_original_content(self, rule, options):
+        return self.item.is_original_content
+
+
+    @comparator(default='bool')
+    def is_poll(self, rule, options):
+        return hasattr(self.item, 'poll_data')
+
+    @comparator(default='bool')
+    def is_gallery(self, item, options):
+        return hasattr(self.item, 'is_gallery') and self.item.is_gallery

@@ -3,6 +3,7 @@ from mock import patch, MagicMock, PropertyMock
 from tests import helpers
 from better_auto_moderator.moderators.post_moderator import PostModerator
 from better_auto_moderator.rule import Rule
+from better_auto_moderator.reddit import reddit
 
 class ModeratorTestCase(unittest.TestCase):
     def test_title_check(self):
@@ -147,19 +148,23 @@ class ModeratorTestCase(unittest.TestCase):
         type(post).poll_data = None
 
     def test_crosspost_base_fields(self):
-        post = helpers.post()
+        old_submission = reddit.submission
         og_post = helpers.post()
-        og_post.body = "This is a crosspost"
+        reddit.submission = MagicMock(return_value=og_post)
+        og_post.selftext = "This is a crosspost"
         og_post.domain = "self.NotMySub"
         og_post.url = "www.notmypost.com"
 
-        post.crosspost_parent = og_post
+        post = helpers.post()
+        post.crosspost_parent = 't3_abcde'
         rule = Rule({})
         mod = PostModerator(post)
 
         self.assertEqual(mod.checks.body.__wrapped__(mod.checks, rule, []), "This is a crosspost", "Crosspost body not being retrieved")
         self.assertEqual(mod.checks.domain.__wrapped__(mod.checks, rule, []), "self.NotMySub", "Crosspost domain not being retrieved")
         self.assertEqual(mod.checks.url.__wrapped__(mod.checks, rule, []), "www.notmypost.com", "Crosspost url not being retrieved")
+
+        reddit.submission = old_submission
 
     def test_crosspost_id_check(self):
         post = helpers.post()
@@ -171,15 +176,18 @@ class ModeratorTestCase(unittest.TestCase):
         mod = PostModerator(post)
         self.assertFalse(mod.moderate(rule), "Post crosspost_id matching even when post is not a crosspost")
 
-        og_post = helpers.post()
-        post.crosspost_parent = og_post
+        post.crosspost_parent = 't3_'+post.id
         post.id = 'dontmatch'
         assert mod.moderate(rule), "Post crosspost_id not matching"
 
-        og_post.id = "testid"
+        post.crosspost_parent = "t3_testid"
         self.assertFalse(mod.moderate(rule), "Post crosspost_id matching as false positive")
 
     def test_crosspost_title_check(self):
+        old_submission = reddit.submission
+        og_post = helpers.post()
+        reddit.submission = MagicMock(return_value=og_post)
+
         post = helpers.post()
         rule = Rule({
             'crosspost_title': 'Post',
@@ -189,13 +197,14 @@ class ModeratorTestCase(unittest.TestCase):
         mod = PostModerator(post)
         self.assertFalse(mod.moderate(rule), "Post crosspost_title matching even when post is not a crosspost")
 
-        og_post = helpers.post()
-        post.crosspost_parent = og_post
+        post.crosspost_parent = 't3_abcde'
         post.title = 'Dont match'
         assert mod.moderate(rule), "Post crosspost_title not matching"
 
         og_post.title = "Test Title"
         self.assertFalse(mod.moderate(rule), "Post crosspost_title matching as false positive")
+
+        reddit.submission = old_submission
 
     def test_media_author_check(self):
         post = helpers.post()
@@ -261,3 +270,57 @@ class ModeratorTestCase(unittest.TestCase):
 
         post.media['oembed']['description'] = 'Goodbye'
         self.assertFalse(mod.moderate(rule), "Post media_description matching as a false positive")
+
+    def test_is_poll(self):
+        rule = Rule({
+            'is_poll': True,
+            'action': 'approve'
+        })
+
+        class PollData:
+            def __init__(self):
+                self.options = [
+                    'Is this a test?',
+                    'Or is this just fantasy?'
+                ]
+
+        poll_data = PollData()
+        post = helpers.post()
+        type(post).poll_data = PropertyMock(return_value=poll_data)
+
+        mod = PostModerator(post)
+        assert mod.moderate(rule), "is_poll not matching"
+
+        delattr(type(post), 'poll_data')
+        self.assertFalse(mod.moderate(rule), "is_poll matching as false positive")
+
+    def test_is_original_content(self):
+        post = helpers.post()
+        rule = Rule({
+            'is_original_content': True,
+            'action': 'approve'
+        })
+
+        post.is_original_content = True
+        mod = PostModerator(post)
+        assert mod.moderate(rule), "is_original_content not matching"
+
+        post.is_original_content = False
+        self.assertFalse(mod.moderate(rule), "is_original_content matching as false positive")
+
+    def test_is_gallery(self):
+        post = helpers.post()
+        rule = Rule({
+            'is_gallery': True,
+            'action': 'approve'
+        })
+
+        post.is_gallery = True
+        mod = PostModerator(post)
+        assert mod.moderate(rule), "is_gallery not matching"
+
+        post.is_gallery = False
+        self.assertFalse(mod.moderate(rule), "is_gallery matching as false positive")
+
+        delattr(post, 'is_gallery')
+        self.assertFalse(mod.moderate(rule), "is_gallery matching when the property doesn't exist")
