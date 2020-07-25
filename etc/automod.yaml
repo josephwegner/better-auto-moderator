@@ -1,6 +1,6 @@
 ---
     # Just a boring test rule of modmail
     type: modqueue
-    report_reason: ["This is misinformation", "Misinformation"]
+    report_reason (only): ["This is misinformation", "Misinformation"]
     action: approve
     ignore_reports: true
