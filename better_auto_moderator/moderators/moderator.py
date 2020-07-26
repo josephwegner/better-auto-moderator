@@ -17,6 +17,10 @@ class Moderator:
 
     def __init__(self, item):
         self.item = item
+        self.matches = {}
+
+    def set_match(self, match, value):
+        self.matches[match] = value
 
     # Available at `self.checks`, without needing to call the func
     @cached_property
@@ -103,13 +107,14 @@ class Moderator:
 
                     for val in values:
                         if isinstance(val, str):
-                            val = ModeratorPlaceholders.replace(val, self.item)
+                            val = ModeratorPlaceholders.replace(val, self.item, self)
 
                         check_val = check(val, rule, options)
                         if check_val is None:
                             return False
                         elif check_val is check_truthiness:
                             passed = True
+
             if not passed:
                 return False
 
@@ -264,6 +269,8 @@ def comparator(default='full-exact', **kwargs):
 
             # Allow comparators to set a value that will automatically cause the check to be skipped
             func_value = func(inst, rule, options)
+            # Store the value in the moderator, so it can be used by placeholders
+            inst.moderator.set_match(func.__name__, func_value)
             if 'skip_if' in kwargs and kwargs.get('skip_if') == func_value:
                 return None
 
@@ -502,7 +509,7 @@ class ModeratorAuthorActions(AbstractActions):
 
 class ModeratorPlaceholders():
     @classmethod
-    def replace(cls, str, item):
+    def replace(cls, str, item, mod):
         # Find anything like {{word}} in the string
         match = re.search(r'{{(.*?)}}', str)
         if match is None:
@@ -510,12 +517,31 @@ class ModeratorPlaceholders():
 
         replaced = str
         for group in match.groups():
-            # If a placeholder exists, use it!
-            if hasattr(cls, group):
+            inject = None
+            if group[:5] == 'match':
+                key = group[6:]
+                if key == '':
+                    key = None
+                inject = cls.match(mod, key=key)
+            elif hasattr(cls, group): # If a placeholder exists, use it!
                 inject = getattr(cls, group)(item)
+
+            if inject is not None:
                 replaced = str.replace("{{%s}}" % group, inject)
 
         return replaced
+
+    @staticmethod
+    def match(mod, key=None):
+        if key is None:
+            if len(mod.matches.keys()) == 0:
+                return None
+            key = mod.matches.keys()[0]
+
+        if key in mod.matches:
+            return mod.matches[key]
+        else:
+            return None
 
     @staticmethod
     def author(item):

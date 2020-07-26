@@ -670,3 +670,18 @@ class ModeratorTestCase(unittest.TestCase):
 
         comment.body = "test ```test\ntest\n    test\n  test\ntest``` test"
         self.assertEqual(len(mod.checks.body.__wrapped__(mod, rule, [])), 10)
+
+    def test_match(self):
+        comment = helpers.comment()
+        comment.body = "comment with id %s" % comment.id
+        rule = Rule({
+            'id': comment.id,
+            'body (full-exact)': 'comment with id {{match-id}}',
+            'action': 'approve'
+        })
+        mod = Moderator(comment)
+
+        assert mod.moderate(rule), 'Match not injecting itself'
+
+        comment.id = 'fghij'
+        self.assertFalse(mod.moderate(rule), 'Match injecting incorrectly')
