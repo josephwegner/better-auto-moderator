@@ -1,3 +1,4 @@
+import praw
 import better_auto_moderator.config as config
 from better_auto_moderator.reddit import subreddit, reddit
 from better_auto_moderator.moderators.comment_moderator import CommentModerator

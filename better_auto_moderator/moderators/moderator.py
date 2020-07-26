@@ -1,4 +1,6 @@
 import re
+import praw
+from urllib.parse import urlparse
 from functools import cached_property, wraps
 from better_auto_moderator.rule import Rule
 from better_auto_moderator.reddit import reddit
@@ -518,3 +520,111 @@ class ModeratorPlaceholders():
     @staticmethod
     def author(item):
         return str(item.author.name)
+
+    @staticmethod
+    def author_flair_text(item):
+        return next(item.subreddit.flair(item.author.name))['flair_text']
+
+    @staticmethod
+    def author_flair_css_class(item):
+        return next(item.subreddit.flair(item.author.name))['flair_css_class']
+
+    @staticmethod
+    def author_flair_template_id(item):
+        url = "r/%s/api/flairselector?name=%s" % (item.subreddit.name, item.author.name)
+        flair = reddit.post(url)['current']
+        if 'flair_template_id' in flair:
+            return flair['flair_template_id']
+        else:
+            return ''
+
+    @staticmethod
+    def body(item):
+        if hasattr(item, 'body'):
+            return item.body
+        elif hasattr(item, 'crosspost_parent'):
+            return reddit.submission(item.crosspost_parent.split('_')[1]).selftext
+        elif hasattr(item, 'selftext'):
+            return item.body
+
+    @staticmethod
+    def permalink(item):
+        return "https://www.reddit.com%s" % item.permalink
+
+    @staticmethod
+    def subreddit(item):
+        return item.subreddit.name
+
+    @staticmethod
+    def kind(item):
+        if isinstance(item, praw.models.Submission):
+            return 'submission'
+        elif isinstance(item, praw.models.Comment):
+            return 'comment'
+        elif isinstance(item, praw.models.SubredditMessage):
+            return 'modmail'
+
+        return None
+
+    @staticmethod
+    def title(item):
+        if hasattr(item, 'title'):
+            return item.title
+
+        return None
+
+    @staticmethod
+    def domain(item):
+        if hasattr(item, 'url'):
+            url = urlparse(item.url)
+            if url.netloc != 'www.reddit.com':
+                return url.netloc
+
+        return "self.%s" % item.subreddit.name
+
+    @staticmethod
+    def url(item):
+        if hasattr(item, 'url'):
+            return item.url
+
+        return None
+
+    @staticmethod
+    def media_author(item):
+        if self.item.media is not None:
+            if 'oembed' in self.item.media and 'author_name' in self.item.media['oembed']:
+                return self.item.media['oembed']['author_name']
+            else:
+                return ''
+        else:
+            return None
+
+    @staticmethod
+    def media_author_url(item):
+        if self.item.media is not None:
+            if 'oembed' in self.item.media and 'author_url' in self.item.media['oembed']:
+                return self.item.media['oembed']['author_url']
+            else:
+                return ''
+        else:
+            return None
+
+    @staticmethod
+    def media_title(item):
+        if self.item.media is not None:
+            if 'oembed' in self.item.media and 'title' in self.item.media['oembed']:
+                return self.item.media['oembed']['title']
+            else:
+                return ''
+        else:
+            return None
+
+    @staticmethod
+    def media_description(item):
+        if self.item.media is not None:
+            if 'oembed' in self.item.media and 'description' in self.item.media['oembed']:
+                return self.item.media['oembed']['description']
+            else:
+                return ''
+        else:
+            return None
