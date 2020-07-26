@@ -13,11 +13,6 @@ class Moderator:
         'filter'
     ]
 
-    actions = {
-        'approve': 'approve',
-        'remove': 'remove'
-    }
-
     def __init__(self, item):
         self.item = item
 
@@ -25,6 +20,11 @@ class Moderator:
     @cached_property
     def checks(self):
         return ModeratorChecks(self)
+
+    # Available at `self.actions`, without needing to call the func
+    @cached_property
+    def actions(self):
+        return ModeratorActions(self)
 
     def are_moderators_exempt(self, rule):
         exempt = False
@@ -45,23 +45,21 @@ class Moderator:
         if not self.check(rule):
             return False
 
-        if 'action' not in rule.config:
-            print("No action defined, skipping rule for item %s" % self.item.id)
-            return False
-        action = rule.config['action']
+        return self.action(rule)
 
-        if not action in self.actions:
-            print("Action %s invoked, but not defined" % action)
-            return False
+    # actions can be set specifically here, if you want to run tests on a sub-group, like "author"
+    # If it's not defined, we'll use whatever is defined in the `actions` method
+    def action(self, rule, actions=None):
+        if actions is None:
+            actions = self.actions
 
-        if not hasattr(self, self.actions[action]):
-            print("Action %s invoked, but is not implemented" % action)
-            return False
+        ran = False
+        for key in rule.config.keys():
+            if hasattr(actions, key):
+                if getattr(actions, key)(rule):
+                    ran = True
 
-        actioner = getattr(self, self.actions[action])
-        actioner(rule)
-
-        return True
+        return ran
 
     # checks can be set specifically here, if you want to run tests on a sub-group, like "author"
     # If it's not defined, we'll use whatever is defined in the `checks` method
@@ -115,20 +113,6 @@ class Moderator:
 
         # None of checks failed, so this must be a pass!
         return True
-
-    def approve(self, rule):
-        print("Approving %s %s" % (type(self.item).__name__, self.item.id))
-        self.item.mod.approve()
-
-        if rule.config.get('ignore_reports'):
-            self.item.mod.ignore_reports()
-
-    def remove(self, rule):
-        print("Removing %s %s" % (type(self.item).__name__, self.item.id))
-        self.item.mod.remove()
-
-        if rule.config.get('ignore_reports'):
-            self.item.mod.ignore_reports()
 
     @staticmethod
     def full_exact(values, test, options):
@@ -297,7 +281,13 @@ class ModeratorChecks(AbstractChecks):
 
     @comparator(default='includes-word')
     def body(self, rule, options):
-        return self.item.body
+        body = self.item.body
+        if rule.config.get('ignore_blockquotes'):
+            tick_match = re.compile(r'```.*?```', re.DOTALL)
+            body = re.sub(tick_match, '', body)
+            body = re.sub(r'    [^\n]*\n', '', body)
+
+        return body
 
     @comparator(default='numeric')
     def body_longer_than(self, rule, options):
@@ -397,11 +387,11 @@ class ModeratorAuthorChecks(AbstractChecks):
 
     @comparator(default='full-exact')
     def flair_text(self, rule, options):
-        return self.item.subreddit.flair(self.item.author.name)['flair_text']
+        return next(self.item.subreddit.flair(self.item.author.name))['flair_text']
 
     @comparator(default='full-exact')
     def flair_css_class(self, rule, options):
-        return self.item.subreddit.flair(self.item.author.name)['flair_css_class']
+        return next(self.item.subreddit.flair(self.item.author.name))['flair_css_class']
 
     @comparator(default='time')
     def account_age(self, rule, options):
@@ -418,6 +408,95 @@ class ModeratorAuthorChecks(AbstractChecks):
     @comparator(default='bool')
     def is_moderator(default='bool'):
         return any(self.item.subreddit.moderator(redditor=self.item.author.name))
+
+class AbstractActions:
+    def __init__(self, moderator):
+        self.moderator = moderator
+        self.item = moderator.item
+
+class ModeratorActions(AbstractActions):
+    def author(self, rule):
+        author_actions = ModeratorAuthorActions(self.moderator)
+        author_rule = Rule(rule.config.get('author'))
+        return self.moderator.action(author_rule, actions=author_actions)
+
+    def ignore_reports(self, rule):
+        print("Ingoring reports on %s %s" % (type(self.item).__name__, self.item.id))
+        self.item.mod.ignore_reports()
+        return True
+
+    def action(self, rule):
+        value = rule.config['action']
+        if 'action_reason' in rule.config and value != 'report':
+            print("Note: action_reason cannot be attached to rules enforced by BAM. Logging instead: %s" % rule.config['action_reason'])
+
+        if value == 'approve':
+            print("Approving %s %s" % (type(self.item).__name__, self.item.id))
+            self.item.mod.approve()
+            return True
+
+        elif value == 'remove':
+            print("Removing %s %s" % (type(self.item).__name__, self.item.id))
+            self.item.mod.remove()
+            return True
+
+        elif value == 'spam':
+            print("Marking %s %s as spam" % (type(self.item).__name__, self.item.id))
+            self.item.mod.remove(spam=True)
+            return True
+
+        elif value == 'report':
+            print("Reporting %s %s" % (type(self.item).__name__, self.item.id))
+            reason = None
+            if 'report_reason' in rule.config:
+                reason = rule.config['report_reason']
+            elif 'action_reason' in rule.config:
+                reason = rule.config['action_reason']
+
+            self.item.report(reason)
+            return True
+
+        return False
+
+    def set_sticky(self, rule):
+        value = rule.config.get('set_sticky')
+        if value:
+            self.item.mod.distinguish("yes", sticky=True)
+        else:
+            self.item.mod.distinguish("no", sticky=False)
+
+        return True
+
+    def set_locked(self, rule):
+        value = rule.config['set_locked']
+        if value:
+            self.item.mod.lock()
+        else:
+            self.item.mod.unlock()
+
+        return True
+
+class ModeratorAuthorActions(AbstractActions):
+    def set_flair(self, rule):
+        check = ModeratorAuthorChecks(self.moderator)
+        flair_text = check.flair_text.__wrapped__(check, rule, [])
+
+        if(flair_text is None or rule.config.get('overwrite_flair')):
+            value = rule.config['set_flair']
+            if isinstance(value, str):
+                self.item.subreddit.flair.set(text=value)
+                return True
+            elif isinstance(value, list):
+                self.item.subreddit.flair.set(text=value[0], css_class=value[1])
+                return True
+            elif isinstance(value, dict):
+                if not 'template_id' in value:
+                    raise Exception("template_id must be provided in set_flair object")
+
+                self.item.subreddit.flair.set(text=value['text'], css_class=value['css_class'], template_id=value['template_id'])
+                return True
+
+        return False
 
 class ModeratorPlaceholders():
     @classmethod

@@ -16,6 +16,7 @@ def comment():
     comment.author.moderated = MagicMock(return_value=[])
     comment.mod.approve = MagicMock(return_value=True)
     comment.mod.remove = MagicMock(return_value=True)
+    comment.report = MagicMock(return_value=True)
 
     return comment
 
@@ -44,6 +45,7 @@ def post():
     post.author.moderated = MagicMock(return_value=[])
     post.mod.approve = MagicMock(return_value=True)
     post.mod.remove = MagicMock(return_value=True)
+    post.report = MagicMock(return_value=True)
 
     return post
 

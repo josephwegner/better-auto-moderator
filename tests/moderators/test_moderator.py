@@ -1,14 +1,13 @@
 import unittest
 from mock import patch, MagicMock
 from tests import helpers
-from better_auto_moderator.moderators.moderator import Moderator
+from better_auto_moderator.moderators.moderator import Moderator, ModeratorAuthorChecks
 from better_auto_moderator.rule import Rule
 from better_auto_moderator.reddit import reddit
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
 class ModeratorTestCase(unittest.TestCase):
-
     def test_moderators_exempt_default(self):
         comment = helpers.comment()
         mod = Moderator(comment)
@@ -180,12 +179,12 @@ class ModeratorTestCase(unittest.TestCase):
         })
         mod = Moderator(post)
 
-        flair_mock = MagicMock(return_value={ 'flair_text': 'test' })
+        flair_mock = MagicMock(return_value=iter([{ 'flair_text': 'test' }]))
         post.subreddit.flair = flair_mock
 
         assert mod.moderate(rule), "Author flair_text not matching"
 
-        flair_mock.return_value = { 'flair_text': 'nomatch' }
+        flair_mock.return_value = iter([{ 'flair_text': 'nomatch' }])
         self.assertFalse(mod.moderate(rule), "Author flair_text matching as a false positive")
 
 
@@ -199,12 +198,12 @@ class ModeratorTestCase(unittest.TestCase):
         })
         mod = Moderator(post)
 
-        flair_mock = MagicMock(return_value={ 'flair_css_class': 'test' })
+        flair_mock = MagicMock(return_value=iter([{ 'flair_css_class': 'test' }]))
         post.subreddit.flair = flair_mock
 
         assert mod.moderate(rule), "Author flair_css_class not matching"
 
-        flair_mock.return_value = { 'flair_css_class': 'nomatch' }
+        flair_mock.return_value = iter([{ 'flair_css_class': 'nomatch' }])
         self.assertFalse(mod.moderate(rule), "Author flair_css_class matching as a false positive")
 
     def test_author_flair_template_id(self):
@@ -495,3 +494,179 @@ class ModeratorTestCase(unittest.TestCase):
         assert mod.moderate(rule), "account_age not matching for years"
         post.author.created_utc = (datetime.today() + relativedelta(years=-9)).timestamp()
         self.assertFalse(mod.moderate(rule), "account_age matching as false positive for years")
+
+    def test_spam(self):
+        post = helpers.post()
+        rule = Rule({
+            'id': post.id,
+            'action': 'spam'
+        })
+        mod = Moderator(post)
+
+        post.mod.remove.reset_mock()
+        mod.moderate(rule)
+        post.mod.remove.assert_called_with(spam=True)
+
+    def test_report(self):
+        post = helpers.post()
+        rule = Rule({
+            'id': post.id,
+            'action': 'report'
+        })
+        mod = Moderator(post)
+
+        post.report.reset_mock()
+        mod.moderate(rule)
+        post.report.assert_called_with(None)
+
+        rule = Rule({
+            'id': post.id,
+            'action': 'report',
+            'action_reason': 'Just cuz'
+        })
+        post.report.reset_mock()
+        mod.moderate(rule)
+        post.report.assert_called_with('Just cuz')
+
+    def test_set_author_flair(self):
+        post = helpers.post()
+        mod = Moderator(post)
+        flair_mock = MagicMock()
+        post.subreddit.flair.set = flair_mock
+        old_get_flair = ModeratorAuthorChecks.flair_text.__wrapped__
+        get_flair_mock = MagicMock(return_value=None)
+        ModeratorAuthorChecks.flair_text.__wrapped__ = get_flair_mock
+
+        # Sets text
+        mod.moderate(Rule({
+            'id': post.id,
+            'author': {
+                'set_flair': 'test'
+            }
+        }))
+        flair_mock.assert_called_with(text='test')
+
+        # Sets both text and css
+        flair_mock.reset_mock()
+        mod.moderate(Rule({
+            'id': post.id,
+            'author': {
+                'set_flair': ['test', 'csstest']
+            }
+        }))
+        flair_mock.assert_called_with(text='test', css_class='csstest')
+
+        # Raises an exception if a dictionary is passed with no template_id
+        with self.assertRaises(Exception):
+            mod.moderate(Rule({
+                'id': post.id,
+                'author': {
+                    'set_flair': {
+                        'text': 'test'
+                    }
+                }
+            }))
+
+        # Sets template_id, text, and css
+        flair_mock.reset_mock()
+        mod.moderate(Rule({
+            'id': post.id,
+            'author': {
+                'set_flair': {
+                    'template_id': 'idtest',
+                    'text': 'test',
+                    'css_class': 'csstest'
+                }
+            }
+        }))
+        flair_mock.assert_called_with(text='test', css_class='csstest', template_id='idtest')
+
+        # Does not set new flair, because overwrite_flair is not set
+        flair_mock.reset_mock()
+        get_flair_mock.return_value = 'before'
+        mod.moderate(Rule({
+            'id': post.id,
+            'author': {
+                'set_flair': 'test'
+            }
+        }))
+        flair_mock.assert_not_called()
+
+        mod.moderate(Rule({
+            'id': post.id,
+            'author': {
+                'set_flair': 'test',
+                'overwrite_flair': True
+            }
+        }))
+        flair_mock.assert_called_with(text='test')
+
+        ModeratorAuthorChecks.flair_text.__wrapped__ = old_get_flair
+
+    def test_set_sticky(self):
+        post = helpers.post()
+        mod = Moderator(post)
+        sticky_mock = MagicMock()
+        post.mod.distinguish = sticky_mock
+
+        # Sets text
+        mod.moderate(Rule({
+            'id': post.id,
+            'set_sticky': True
+        }))
+        sticky_mock.assert_called_with('yes', sticky=True)
+
+        sticky_mock.reset_mock()
+        mod.moderate(Rule({
+            'id': post.id,
+            'set_sticky': 1
+        }))
+        sticky_mock.assert_called_with('yes', sticky=True)
+
+        sticky_mock.reset_mock()
+        mod.moderate(Rule({
+            'id': post.id,
+            'set_sticky': False
+        }))
+        sticky_mock.assert_called_with('no', sticky=False)
+
+    def test_set_locked(self):
+        post = helpers.post()
+        mod = Moderator(post)
+        lock_mock = MagicMock()
+        unlock_mock = MagicMock()
+        post.mod.lock = lock_mock
+        post.mod.unlock = unlock_mock
+
+        mod.moderate(Rule({
+            'id': post.id,
+            'set_locked': True
+        }))
+        lock_mock.assert_called()
+        unlock_mock.assert_not_called()
+
+        lock_mock.reset_mock()
+        mod.moderate(Rule({
+            'id': post.id,
+            'set_locked': False
+        }))
+        lock_mock.assert_not_called()
+        unlock_mock.assert_called()
+
+    def test_ignore_blockquotes(self):
+        rule = Rule({
+            'ignore_blockquotes': True
+        })
+        comment = helpers.comment()
+        mod = Moderator(comment)
+
+        # test
+        #     test <-- removed
+        #          <-- removed
+        #     test <-- removed
+        # test
+        comment.body = "test\n    test\n    \n    test\ntest"
+        self.assertEqual(len(mod.checks.body.__wrapped__(mod, rule, [])), 9)
+
+        comment.body = "test ```test\ntest\n    test\n  test\ntest``` test"
+        self.assertEqual(len(mod.checks.body.__wrapped__(mod, rule, [])), 10)

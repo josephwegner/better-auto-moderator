@@ -324,3 +324,187 @@ class ModeratorTestCase(unittest.TestCase):
 
         delattr(post, 'is_gallery')
         self.assertFalse(mod.moderate(rule), "is_gallery matching when the property doesn't exist")
+
+    def test_set_flair(self):
+        post = helpers.post()
+        mod = PostModerator(post)
+        flair_mock = MagicMock()
+        post.mod.flair = flair_mock
+        post.link_flair_text = None
+
+        # Sets text
+        mod.moderate(Rule({
+            'id': post.id,
+            'set_flair': 'test'
+        }))
+        flair_mock.assert_called_with(text='test')
+
+        # Sets both text and css
+        flair_mock.reset_mock()
+        mod.moderate(Rule({
+            'id': post.id,
+            'set_flair': ['test', 'csstest']
+        }))
+        flair_mock.assert_called_with(text='test', css_class='csstest')
+
+        # Raises an exception if a dictionary is passed with no template_id
+        with self.assertRaises(Exception):
+            mod.moderate(Rule({
+                'id': post.id,
+                'set_flair': {
+                    'text': 'test'
+                }
+            }))
+
+        # Sets template_id, text, and css
+        flair_mock.reset_mock()
+        mod.moderate(Rule({
+            'id': post.id,
+            'set_flair': {
+                'template_id': 'idtest',
+                'text': 'test',
+                'css_class': 'csstest'
+            }
+        }))
+        flair_mock.assert_called_with(text='test', css_class='csstest', template_id='idtest')
+
+        # Does not set new flair, because overwrite_flair is not set
+        flair_mock.reset_mock()
+        post.link_flair_text = 'before'
+        mod.moderate(Rule({
+            'id': post.id,
+            'set_flair': 'test'
+        }))
+        flair_mock.assert_not_called()
+
+        mod.moderate(Rule({
+            'id': post.id,
+            'set_flair': 'test',
+            'overwrite_flair': True
+        }))
+        flair_mock.assert_called_with(text='test')
+
+    def test_set_nsfw(self):
+        post = helpers.post()
+        mod = PostModerator(post)
+        nsfw_mock = MagicMock()
+        sfw_mock = MagicMock()
+        post.mod.nsfw = nsfw_mock
+        post.mod.sfw = sfw_mock
+
+        mod.moderate(Rule({
+            'id': post.id,
+            'set_nsfw': True
+        }))
+        nsfw_mock.assert_called()
+        sfw_mock.assert_not_called()
+
+        nsfw_mock.reset_mock()
+        mod.moderate(Rule({
+            'id': post.id,
+            'set_nsfw': False
+        }))
+        nsfw_mock.assert_not_called()
+        sfw_mock.assert_called()
+
+    def test_set_spoiler(self):
+        post = helpers.post()
+        mod = PostModerator(post)
+        spoiler_mock = MagicMock()
+        unspoiler_mock = MagicMock()
+        post.mod.spoiler = spoiler_mock
+        post.mod.unspoiler = unspoiler_mock
+
+        mod.moderate(Rule({
+            'id': post.id,
+            'set_spoiler': True
+        }))
+        spoiler_mock.assert_called()
+        unspoiler_mock.assert_not_called()
+
+        spoiler_mock.reset_mock()
+        mod.moderate(Rule({
+            'id': post.id,
+            'set_spoiler': False
+        }))
+        spoiler_mock.assert_not_called()
+        unspoiler_mock.assert_called()
+
+    def test_set_contest_mode(self):
+        post = helpers.post()
+        mod = PostModerator(post)
+        contest_mode_mock = MagicMock()
+        post.mod.contest_mode = contest_mode_mock
+
+        mod.moderate(Rule({
+            'id': post.id,
+            'set_contest_mode': True
+        }))
+        contest_mode_mock.assert_called_with(True)
+
+        mod.moderate(Rule({
+            'id': post.id,
+            'set_contest_mode': False
+        }))
+        contest_mode_mock.assert_called_with(False)
+
+    def test_set_original_content(self):
+        post = helpers.post()
+        mod = PostModerator(post)
+        set_original_content_mock = MagicMock()
+        unset_original_content_mock = MagicMock()
+        post.mod.set_original_content = set_original_content_mock
+        post.mod.unset_original_content = unset_original_content_mock
+
+        mod.moderate(Rule({
+            'id': post.id,
+            'set_original_content': True
+        }))
+        set_original_content_mock.assert_called()
+        unset_original_content_mock.assert_not_called()
+
+        set_original_content_mock.reset_mock()
+        mod.moderate(Rule({
+            'id': post.id,
+            'set_original_content': False
+        }))
+        set_original_content_mock.assert_not_called()
+        unset_original_content_mock.assert_called()
+
+    def test_set_suggested_sort(self):
+        post = helpers.post()
+        mod = PostModerator(post)
+        suggested_sort_mock = MagicMock()
+        post.mod.suggested_sort = suggested_sort_mock
+
+        mod.moderate(Rule({
+            'id': post.id,
+            'set_suggested_sort': 'hot'
+        }))
+        suggested_sort_mock.assert_called_with('hot')
+
+        mod.moderate(Rule({
+            'id': post.id,
+            'set_suggested_sort': 'new'
+        }))
+        suggested_sort_mock.assert_called_with('new')
+
+
+
+    def test_ignore_blockquotes(self):
+        rule = Rule({
+            'ignore_blockquotes': True
+        })
+        post = helpers.post()
+        mod = PostModerator(post)
+
+        # test
+        #     test <-- removed
+        #          <-- removed
+        #     test <-- removed
+        # test
+        post.selftext = "test\n    test\n    \n    test\ntest"
+        self.assertEqual(len(mod.checks.body.__wrapped__(mod, rule, [])), 9)
+
+        post.selftext = "test ```test\ntest\n    test\n  test\ntest``` test"
+        self.assertEqual(len(mod.checks.body.__wrapped__(mod, rule, [])), 10)

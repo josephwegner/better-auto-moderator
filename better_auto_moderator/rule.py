@@ -36,6 +36,9 @@ class Rule:
         if self.requires_bam and 'standard' in self.config:
             raise Exception('Standard check defined for a BAM rule. Standards are not supported by BAM.')
 
+        if self.requires_bam and self.config.get('action') == 'filter':
+            raise Exception('Filter actions cannot be run by BAM.')
+
     def parse_type(self, type):
         self.type = type
 

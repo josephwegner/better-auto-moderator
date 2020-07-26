@@ -1,8 +1,12 @@
+import re
 from functools import cached_property
-from better_auto_moderator.moderators.moderator import Moderator, ModeratorChecks, comparator
+from better_auto_moderator.moderators.moderator import Moderator, ModeratorChecks, ModeratorActions, comparator
 from better_auto_moderator.reddit import reddit
 
 class PostModerator(Moderator):
+    @cached_property
+    def actions(self):
+        return PostModeratorActions(self)
 
     @cached_property
     def checks(self):
@@ -19,10 +23,18 @@ class PostModerator(Moderator):
 class PostModeratorChecks(ModeratorChecks):
     @comparator(default='includes-word')
     def body(self,rule, options):
+        body = ""
         if hasattr(self.item, 'crosspost_parent'):
-            return reddit.submission(self.item.crosspost_parent.split('_')[1]).selftext
+            body = reddit.submission(self.item.crosspost_parent.split('_')[1]).selftext
+        else:
+            body = self.item.selftext
 
-        return self.item.selftext
+        if rule.config.get('ignore_blockquotes'):
+            tick_match = re.compile(r'```.*?```', re.DOTALL)
+            body = re.sub(tick_match, '', body)
+            body = re.sub(r'    [^\n]*\n', '', body)
+
+        return body
 
     @comparator(default='includes-word')
     def title(self, rule, options):
@@ -132,3 +144,57 @@ class PostModeratorChecks(ModeratorChecks):
     @comparator(default='bool')
     def is_gallery(self, item, options):
         return hasattr(self.item, 'is_gallery') and self.item.is_gallery
+
+class PostModeratorActions(ModeratorActions):
+    def set_flair(self, rule):
+        if(self.item.link_flair_text is None or rule.config.get('overwrite_flair')):
+            value = rule.config['set_flair']
+            if isinstance(value, str):
+                self.item.mod.flair(text=value)
+                return True
+            elif isinstance(value, list):
+                self.item.mod.flair(text=value[0], css_class=value[1])
+                return True
+            elif isinstance(value, dict):
+                if not 'template_id' in value:
+                    raise Exception("template_id must be provided in set_flair object")
+
+                self.item.mod.flair(text=value['text'], css_class=value['css_class'], template_id=value['template_id'])
+                return True
+
+        return False
+
+    def set_nsfw(self, rule):
+        value = rule.config['set_nsfw']
+        if value:
+            self.item.mod.nsfw()
+        else:
+            self.item.mod.sfw()
+
+        return True
+
+    def set_spoiler(self, rule):
+        value = rule.config['set_spoiler']
+        if value:
+            self.item.mod.spoiler()
+        else:
+            self.item.mod.unspoiler()
+
+        return True
+
+    def set_contest_mode(self, rule):
+        self.item.mod.contest_mode((rule.config['set_contest_mode'] is True))
+        return True
+
+    def set_original_content(self, rule):
+        value = rule.config['set_original_content']
+        if value:
+            self.item.mod.set_original_content()
+        else:
+            self.item.mod.unset_original_content()
+
+        return True
+
+    def set_suggested_sort(self, rule):
+        self.item.mod.suggested_sort(rule.config['set_suggested_sort'])
+        return True
