@@ -451,6 +451,15 @@ class ModeratorActions(AbstractActions):
         author_rule = Rule(rule.config.get('author'))
         return self.moderator.action(author_rule, actions=author_actions)
 
+    def crosspost_author(self, value, rule, options):
+        if not hasattr(self.item, 'crosspost_parent'):
+            return None
+
+        author_actions = ModeratorAuthorActions(self.moderator)
+        author_actions.item = reddit.submission(self.item.crosspost_parent.split('_')[1])
+        author_rule = Rule(value)
+        return self.moderator.check(author_rule, actions=author_actions)
+
     def ignore_reports(self, rule):
         print("Ingoring reports on %s %s" % (type(self.item).__name__, self.item.id))
         self.item.mod.ignore_reports()
