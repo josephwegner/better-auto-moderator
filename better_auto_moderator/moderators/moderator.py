@@ -456,6 +456,38 @@ class ModeratorActions(AbstractActions):
         self.item.mod.ignore_reports()
         return True
 
+    def reply(self, rule):
+        body = rule.config['reply']
+        print("Replying to %s %s" % (type(self.item).__name__, self.item.id))
+        comment = self.item.reply(body)
+
+        if rule.config.get('comment_locked'):
+            comment.lock()
+        if rule.config.get('comment_stickied'):
+            self.item.mod.distinguish("yes", sticky=True)
+
+    def message(self, rule):
+        subject = "BetterAutoModerator notification"
+        if 'message_subject' in rule.config:
+            subject = rule.config['message_subject']
+
+        message = "%s\n%s\nI am a bot, and this action was"\
+        "performed automatically. Please [contact the moderators of this subreddit]"\
+        "(https://www.reddit.com/message/compose/?to=/r/%s) if you have"\
+        "any questions or concerns." % (self.item.permalink, rule.config['message'], self.item.subreddit.name)
+
+        self.item.author.message(subject, message)
+
+    def modmail(self, rule):
+        subject = "BetterAutoModerator notification"
+        if 'modmail_subject' in rule.config:
+            subject = rule.config['modmail_subject']
+
+        message = "%s\n%s\nI am a bot, and this action was"\
+        "performed automatically." % (self.item.permalink, rule.config['message'])
+
+        self.item.subreddit.modmail.create(subject, message, reddit.user)
+
     def action(self, rule):
         value = rule.config['action']
         if 'action_reason' in rule.config and value != 'report':
