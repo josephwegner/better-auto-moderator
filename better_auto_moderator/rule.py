@@ -1,4 +1,5 @@
 import yaml
+from operator import itemgetter
 
 class Rule:
     # We'll flip this to True whenever a rule uses options that are not supported
@@ -12,6 +13,10 @@ class Rule:
         self.priority = 0
         self.parse(self.raw)
 
+    @staticmethod
+    def sort_rules(rules):
+        return sorted(rules, key=lambda rule: (-int(rule.is_priority()), -rule.priority))
+
     # Output the rules in a YAML format that Automoderator will understand
     def to_reddit(self):
         config = dict(self.config)
@@ -19,6 +24,11 @@ class Rule:
         config['type'] = self.type
 
         return yaml.dump(config, Dumper=yaml.Dumper)
+
+    def is_priority(self):
+        if 'action' in self.config and self.config['action'] in ['remove', 'spam', 'filter']:
+            return True
+        return False
 
     def parse(self, config):
         for key in config.keys():

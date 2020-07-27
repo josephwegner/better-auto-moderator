@@ -13,6 +13,8 @@ def comment():
     type(comment).submission = submission
     comment.user_reports = []
     comment.mod_reports = []
+    comment.approved = False
+    comment.removed = False
     comment.author.moderated = MagicMock(return_value=[])
     comment.mod.approve = MagicMock(return_value=True)
     comment.mod.remove = MagicMock(return_value=True)
@@ -40,6 +42,8 @@ def post():
         'subreddit': subreddit().name,
         'media': None
     })
+    post.approved = False
+    post.removed = False
     sub = PropertyMock(return_value=subreddit())
     type(post).subreddit = sub
     post.author.moderated = MagicMock(return_value=[])

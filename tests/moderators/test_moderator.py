@@ -1,5 +1,5 @@
 import unittest
-from mock import patch, MagicMock
+from mock import patch, MagicMock, PropertyMock
 from tests import helpers
 from better_auto_moderator.moderators.moderator import Moderator, ModeratorAuthorChecks
 from better_auto_moderator.rule import Rule
@@ -685,3 +685,38 @@ class ModeratorTestCase(unittest.TestCase):
 
         comment.id = 'fghij'
         self.assertFalse(mod.moderate(rule), 'Match injecting incorrectly')
+
+    def test_satisfy_any_threshold(self):
+        comment = helpers.comment()
+        type(comment.author).comment_karma = PropertyMock(return_value=150)
+        type(comment.author).link_karma = PropertyMock(return_value=100)
+        mod = Moderator(comment)
+
+        rule = Rule({
+            'author': {
+                'comment_karma': '> 50',
+                'post_karma': '< 50'
+            },
+            'action': 'approve'
+        })
+        self.assertFalse(mod.moderate(rule), 'Karma rules are passing when false, regardless of satisfy_any_threshold')
+
+        rule = Rule({
+            'author': {
+                'comment_karma': '> 50',
+                'post_karma': '< 50',
+                'satisfy_any_threshold': True
+            },
+            'action': 'approve'
+        })
+        assert mod.moderate(rule), 'Karma rules are not passing when satisfy_any_threshold is True'
+
+        rule = Rule({
+            'author': {
+                'comment_karma': '< 50',
+                'post_karma': '< 50',
+                'satisfy_any_threshold': True
+            },
+            'action': 'approve'
+        })
+        self.assertFalse(mod.moderate(rule), 'Karma rules matching as false positive when satisfy_any_threshold is True')

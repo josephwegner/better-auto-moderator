@@ -73,6 +73,10 @@ class Moderator:
         if checks is None:
             checks = self.checks
 
+        satisfy_any_threshold = rule.config.get('satisfy_any_threshold')
+        satisfied_threshold = False
+        threshold_checks = ['comment_karma', 'post_karma', 'combined_karma', 'account_age']
+
         for key in rule.config:
             check_name = key
             # Search for options, like (regex) or (case-sensitive)
@@ -115,8 +119,13 @@ class Moderator:
                         elif check_val is check_truthiness:
                             passed = True
 
-            if not passed:
+            if not passed and (not satisfy_any_threshold or check_name not in threshold_checks):
                 return False
+            elif passed and satisfy_any_threshold and check_name in threshold_checks:
+                satisfied_threshold = True
+
+        if satisfy_any_threshold:
+            return satisfied_threshold
 
         # None of checks failed, so this must be a pass!
         return True
@@ -330,6 +339,15 @@ class ModeratorChecks(AbstractChecks):
         author_rule = Rule(value)
         return self.moderator.check(author_rule, checks=author_checks)
 
+    def crosspost_author(self, value, rule, options):
+        if not hasattr(self.item, 'crosspost_parent'):
+            return None
+
+        author_checks = ModeratorAuthorChecks(self.moderator)
+        author_checks.item = reddit.submission(self.item.crosspost_parent.split('_')[1])
+        author_rule = Rule(value)
+        return self.moderator.check(author_rule, checks=author_checks)
+
     def crosspost_subreddit(self, value, rule, options):
         if not hasattr(self.item, 'crosspost_parent'):
             return None
@@ -376,6 +394,10 @@ class ModeratorAuthorChecks(AbstractChecks):
     @comparator(default='numeric')
     def post_karma(self, rule, options):
         return self.item.author.link_karma
+
+    @comparator(default='numeric')
+    def combined_karma(self, rule, options):
+        return self.item.author.link_karma + self.item.author.comment_karma
 
     @comparator(default='full-exact')
     def id(self, rule, options):
@@ -440,11 +462,20 @@ class ModeratorActions(AbstractActions):
             print("Note: action_reason cannot be attached to rules enforced by BAM. Logging instead: %s" % rule.config['action_reason'])
 
         if value == 'approve':
+            if self.item.removed:
+                return False
+
+            if self.item.approved and 'reports' not in rule.config:
+                return False
+
             print("Approving %s %s" % (type(self.item).__name__, self.item.id))
             self.item.mod.approve()
             return True
 
         elif value == 'remove':
+            if self.item.approved:
+                return False
+
             print("Removing %s %s" % (type(self.item).__name__, self.item.id))
             self.item.mod.remove()
             return True
@@ -470,8 +501,10 @@ class ModeratorActions(AbstractActions):
     def set_sticky(self, rule):
         value = rule.config.get('set_sticky')
         if value:
+            print("Setting %s %s to sticky" % (type(self.item).__name__, self.item.id))
             self.item.mod.distinguish("yes", sticky=True)
         else:
+            print("Setting %s %s to not sticky" % (type(self.item).__name__, self.item.id))
             self.item.mod.distinguish("no", sticky=False)
 
         return True
@@ -479,8 +512,10 @@ class ModeratorActions(AbstractActions):
     def set_locked(self, rule):
         value = rule.config['set_locked']
         if value:
+            print("Locking %s %s" % (type(self.item).__name__, self.item.id))
             self.item.mod.lock()
         else:
+            print("Unlocking %s %s" % (type(self.item).__name__, self.item.id))
             self.item.mod.unlock()
 
         return True
@@ -491,6 +526,7 @@ class ModeratorAuthorActions(AbstractActions):
         flair_text = check.flair_text.__wrapped__(check, rule, [])
 
         if(flair_text is None or rule.config.get('overwrite_flair')):
+            print("Setting flair for user %s" % self.item.author.name)
             value = rule.config['set_flair']
             if isinstance(value, str):
                 self.item.subreddit.flair.set(text=value)

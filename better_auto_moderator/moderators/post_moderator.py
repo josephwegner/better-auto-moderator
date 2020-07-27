@@ -148,6 +148,7 @@ class PostModeratorChecks(ModeratorChecks):
 class PostModeratorActions(ModeratorActions):
     def set_flair(self, rule):
         if(self.item.link_flair_text is None or rule.config.get('overwrite_flair')):
+            print("Setting flair for user %s" % self.item.author.name)
             value = rule.config['set_flair']
             if isinstance(value, str):
                 self.item.mod.flair(text=value)
@@ -167,8 +168,10 @@ class PostModeratorActions(ModeratorActions):
     def set_nsfw(self, rule):
         value = rule.config['set_nsfw']
         if value:
+            print("Setting %s %s as nsfw" % (type(self.item).__name__, self.item.id))
             self.item.mod.nsfw()
         else:
+            print("Setting %s %s as sfw" % (type(self.item).__name__, self.item.id))
             self.item.mod.sfw()
 
         return True
@@ -176,25 +179,31 @@ class PostModeratorActions(ModeratorActions):
     def set_spoiler(self, rule):
         value = rule.config['set_spoiler']
         if value:
+            print("Setting %s %s as spoiler" % (type(self.item).__name__, self.item.id))
             self.item.mod.spoiler()
         else:
+            print("Removing spoiler tag from %s %s" % (type(self.item).__name__, self.item.id))
             self.item.mod.unspoiler()
 
         return True
 
     def set_contest_mode(self, rule):
+        print("Setting contest mode on %s %s" % (type(self.item).__name__, self.item.id))
         self.item.mod.contest_mode((rule.config['set_contest_mode'] is True))
         return True
 
     def set_original_content(self, rule):
         value = rule.config['set_original_content']
         if value:
+            print("Setting %s %s as original content" % (type(self.item).__name__, self.item.id))
             self.item.mod.set_original_content()
         else:
+            print("Unsetting %s %s as original content" % (type(self.item).__name__, self.item.id))
             self.item.mod.unset_original_content()
 
         return True
 
     def set_suggested_sort(self, rule):
+        print("Setting suggested sort on %s %s to %s" % (type(self.item).__name__, self.item.id, rule.config['set_suggested_sort']))
         self.item.mod.suggested_sort(rule.config['set_suggested_sort'])
         return True
