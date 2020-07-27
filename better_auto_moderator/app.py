@@ -10,8 +10,6 @@ from datetime import datetime
 ### I'm not convinced mods will want to write all rules in BAM yet
 #config.push_rules()
 
-print(dir(reddit.redditor('takamarou')))
-
 rules_by_type = {}
 rules = config.get_bam_rules()
 
