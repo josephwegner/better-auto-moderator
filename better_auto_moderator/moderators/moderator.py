@@ -114,6 +114,8 @@ class Moderator:
                             val = ModeratorPlaceholders.replace(val, self.item, self)
 
                         check_val = check(val, rule, options)
+                        if self.item.id == 'hz5yrk':
+                            print(check_name, val, check_val, options)
                         if check_val is None:
                             return False
                         elif check_val is check_truthiness:
@@ -153,6 +155,27 @@ class Moderator:
                 return True
 
         return False
+
+    @classmethod
+    def contains(cls, values, test, options):
+        for value in values:
+            # use full_exact, so options like case-sensitive and regexp still work
+            if cls.full_exact(value, test, options):
+                return True
+
+        return False
+
+    @classmethod
+    def only(cls, values, test, options):
+        if len(values) == 0:
+            return False
+
+        for value in values:
+            # use full_exact, so options like case-sensitive and regexp still work
+            if not cls.full_exact(value, test, options):
+                return False
+
+        return True
 
     @staticmethod
     def includes(values, test, options):
@@ -357,7 +380,7 @@ class ModeratorChecks(AbstractChecks):
         return self.moderator.check(sub_rule, checks=sub_checks)
 
     @comparator(default='contains')
-    def report_reason(self, rule, options):
+    def report_reasons(self, rule, options):
         reports = self.item.user_reports
         if not self.moderator.are_moderators_exempt(rule):
             reports = reports + self.item.mod_reports
@@ -371,7 +394,7 @@ class ModeratorChecks(AbstractChecks):
 
     @comparator(default='bool')
     def is_edited(self, rule, options):
-        return self.item.edited
+        return bool(self.item.edited)
 
 class ModeratorCrosspostSubredditChecks(AbstractChecks):
     @cached_property
@@ -463,6 +486,10 @@ class ModeratorActions(AbstractActions):
     def ignore_reports(self, rule):
         print("Ingoring reports on %s %s" % (type(self.item).__name__, self.item.id))
         self.item.mod.ignore_reports()
+        return True
+
+    def log(self, rule):
+        print(rule.config['log'])
         return True
 
     def reply(self, rule):

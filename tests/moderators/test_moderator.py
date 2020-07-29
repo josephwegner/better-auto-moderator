@@ -379,7 +379,7 @@ class ModeratorTestCase(unittest.TestCase):
             'action': 'approve'
         })
 
-        comment.edited = True
+        comment.edited = 1595932445.0
         mod = Moderator(comment)
         assert mod.moderate(rule), "is_edited not matching"
 

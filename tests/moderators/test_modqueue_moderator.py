@@ -8,7 +8,7 @@ class ModeratorTestCase(unittest.TestCase):
 
     def test_report_reasons_contains(self):
         rule = Rule({
-            'report_reason': 'abcde',
+            'report_reasons': 'abcde',
             'action': 'approve'
         })
 
@@ -32,7 +32,7 @@ class ModeratorTestCase(unittest.TestCase):
 
     def test_report_reasons_only(self):
         rule = Rule({
-            'report_reason (only)': 'abcde',
+            'report_reasons (only)': 'abcde',
             'action': 'approve'
         })
 
@@ -63,7 +63,7 @@ class ModeratorTestCase(unittest.TestCase):
 
     def test_report_reasons_with_mod_reports(self):
         rule = Rule({
-            'report_reason': 'abcde',
+            'report_reasons': 'abcde',
             'action': 'approve'
         })
 
@@ -79,7 +79,7 @@ class ModeratorTestCase(unittest.TestCase):
         assert mod.moderate(rule), "Report reasons don't match against mod reports"
 
         rule = Rule({
-            'report_reason': 'abcde',
+            'report_reasons': 'abcde',
             'action': 'approve',
             'moderators_exempt': True
         })
@@ -87,7 +87,7 @@ class ModeratorTestCase(unittest.TestCase):
 
     def test_contains_calls_full_text(self):
         rule = Rule({
-            'report_reason': 'abcde',
+            'report_reasons': 'abcde',
             'action': 'approve'
         })
 

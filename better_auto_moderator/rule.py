@@ -89,6 +89,10 @@ class Rule:
     def parse_priority(self, priority):
         self.priority = priority
 
+    def parse_log(self, log):
+        self.config['log'] = log
+        self.requires_bam = True
+
     # `bam: true` can be set in a rule to force it to be run by BAM. This is good for testing.
     def parse_bam(self, value):
         self.requires_bam = value
