@@ -720,3 +720,21 @@ class ModeratorTestCase(unittest.TestCase):
             'action': 'approve'
         })
         self.assertFalse(mod.moderate(rule), 'Karma rules matching as false positive when satisfy_any_threshold is True')
+
+
+    def test_is_banned(self):
+        comment = helpers.comment()
+        mod = Moderator(comment)
+        rule = Rule({
+            'author': {
+                'is_banned': True
+            },
+            'action': 'approve'
+        })
+        banned_mock = MagicMock(return_value=[1]) #is_banned just checks for any items in the array
+        comment.subreddit.banned = banned_mock
+        assert mod.moderate(rule), "is_banned not matching when one value is returned for bans"
+        banned_mock.assert_called_with(redditor=comment.author.name)
+
+        banned_mock.return_value=[]
+        self.assertFalse(mod.moderate(rule), "is_banned matching as false positive")

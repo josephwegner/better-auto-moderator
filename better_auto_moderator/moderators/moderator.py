@@ -456,12 +456,16 @@ class ModeratorAuthorChecks(AbstractChecks):
         return self.item.author.is_gold
 
     @comparator(default='bool')
-    def is_contributor(default='bool'):
+    def is_contributor(self, rule, options):
         return any(self.item.subreddit.contributor(redditor=self.item.author.name))
 
     @comparator(default='bool')
-    def is_moderator(default='bool'):
+    def is_moderator(self, rule, options):
         return any(self.item.subreddit.moderator(redditor=self.item.author.name))
+
+    @comparator(default='bool')
+    def is_banned(self, rule, options):
+        return any(self.item.subreddit.banned(redditor=self.item.author.name))
 
 class AbstractActions:
     def __init__(self, moderator):
@@ -507,22 +511,26 @@ class ModeratorActions(AbstractActions):
         if 'message_subject' in rule.config:
             subject = rule.config['message_subject']
 
-        message = "%s\n%s\nI am a bot, and this action was"\
-        "performed automatically. Please [contact the moderators of this subreddit]"\
-        "(https://www.reddit.com/message/compose/?to=/r/%s) if you have"\
-        "any questions or concerns." % (self.item.permalink, rule.config['message'], self.item.subreddit.name)
+        message = """%s
 
-        self.item.author.message(subject, message)
+%s
+
+*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](https://www.reddit.com/message/compose/?to=/r/%s) if you have any questions or concerns.*""" % ("https://www.reddit.com"+self.item.permalink, rule.config['message'], self.item.subreddit.name)
+
+        self.item.subreddit.modmail.create(subject, message, self.item.author)
 
     def modmail(self, rule):
         subject = "BetterAutoModerator notification"
         if 'modmail_subject' in rule.config:
             subject = rule.config['modmail_subject']
 
-        message = "%s\n%s\nI am a bot, and this action was"\
-        "performed automatically." % (self.item.permalink, rule.config['message'])
+        message = """%s
 
-        self.item.subreddit.modmail.create(subject, message, reddit.user)
+%s
+
+*I am a bot, and this action was performed automatically.*""" % ("https://www.reddit.com"+self.item.permalink, rule.config['modmail'])
+
+        self.item.subreddit.message(subject, message)
 
     def action(self, rule):
         value = rule.config['action']

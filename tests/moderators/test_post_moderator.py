@@ -489,8 +489,6 @@ class ModeratorTestCase(unittest.TestCase):
         }))
         suggested_sort_mock.assert_called_with('new')
 
-
-
     def test_ignore_blockquotes(self):
         rule = Rule({
             'ignore_blockquotes': True
