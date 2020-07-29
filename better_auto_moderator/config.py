@@ -112,4 +112,9 @@ def push_rules(rules):
 
     # Little bit of formatting here to make it more readable
     full_yaml = "\n---\n\n".join(rules_for_reddit)
-    update_automod_config(full_yaml)
+    config = """# This subreddit is using BetterAutoModerator, which means that this auto_moderator config has been automatically generated.
+# It is NOT a good idea to edit this page directly - it will just get overwritten by BAM later. If you want to add or edit
+# existing rules, please go to the better_auto_moderator/rules wiki page and work there. Changes will get moved here automatically.
+
+%s""" % full_yaml
+    update_automod_config(config)
