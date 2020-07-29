@@ -1,4 +1,5 @@
 import unittest
+from mock import MagicMock
 from tests import helpers
 from better_auto_moderator.moderators.comment_moderator import CommentModerator
 from better_auto_moderator.rule import Rule
@@ -34,3 +35,28 @@ class CommentModeratorTestCase(unittest.TestCase):
 
         comment.author.id = 'fghij'
         self.assertFalse(mod.moderate(rule), "is_submitter matching on a false positive")
+
+    def test_parent_comment(self):
+        comment = helpers.comment()
+        parent_comment = helpers.comment()
+        comment.parent = MagicMock(return_value=parent_comment)
+        mod = CommentModerator(comment)
+
+        rule = Rule({
+            'parent_comment': {
+                'id': 'test',
+                'action': 'approve'
+            }
+        })
+        comment.depth = 0
+        self.assertFalse(mod.moderate(rule), "parent_comment matches even at depth=0")
+
+        comment.depth = 1
+        comment.id = 'test'
+        self.assertFalse(mod.moderate(rule), "parent_comment matching on OG comment attributes")
+
+        comment.id = 'abcde'
+        parent_comment.id = 'test'
+        parent_comment.mod.approve.reset_mock()
+        assert mod.moderate(rule), "parent_comment not matching"
+        parent_comment.mod.approve.assert_called()

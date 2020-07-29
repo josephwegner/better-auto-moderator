@@ -1,7 +1,8 @@
 import re
 from functools import cached_property
-from better_auto_moderator.moderators.moderator import Moderator, ModeratorChecks, ModeratorActions, comparator
+from better_auto_moderator.moderators.moderator import Moderator, ModeratorChecks, ModeratorActions, AbstractChecks, comparator
 from better_auto_moderator.reddit import reddit
+from better_auto_moderator.rule import Rule
 
 class PostModerator(Moderator):
     @cached_property
@@ -21,6 +22,23 @@ class PostModerator(Moderator):
         return cls.ends_with(value, domain, options)
 
 class PostModeratorChecks(ModeratorChecks):
+    def crosspost_author(self, value, rule, options):
+        if not hasattr(self.item, 'crosspost_parent'):
+            return None
+
+        author_checks = ModeratorAuthorChecks(self.moderator)
+        author_checks.item = reddit.submission(self.item.crosspost_parent.split('_')[1])
+        author_rule = Rule(value)
+        return self.moderator.check(author_rule, checks=author_checks)
+
+    def crosspost_subreddit(self, value, rule, options):
+        if not hasattr(self.item, 'crosspost_parent'):
+            return None
+
+        sub_checks = ModeratorCrosspostSubredditChecks(self.moderator)
+        sub_rule = Rule(value)
+        return self.moderator.check(sub_rule, checks=sub_checks)
+
     @comparator(default='includes-word')
     def body(self,rule, options):
         body = ""
@@ -145,7 +163,29 @@ class PostModeratorChecks(ModeratorChecks):
     def is_gallery(self, item, options):
         return hasattr(self.item, 'is_gallery') and self.item.is_gallery
 
+class ModeratorCrosspostSubredditChecks(AbstractChecks):
+    @cached_property
+    def parent(self):
+        return reddit.submission(self.item.crosspost_parent.split('_')[1])
+
+    @comparator(default='includes-word')
+    def name(self, rule, options):
+        return self.parent.subreddit.name
+
+    @comparator(default='bool')
+    def is_nsfw(self, rule, options):
+        return self.parent.subreddit.over18
+
 class PostModeratorActions(ModeratorActions):
+    def crosspost_author(self, rule):
+        if not hasattr(self.item, 'crosspost_parent'):
+            return None
+
+        author_actions = ModeratorAuthorActions(self.moderator)
+        author_actions.item = reddit.submission(self.item.crosspost_parent.split('_')[1])
+        author_rule = Rule(rule.config['crosspost_author'])
+        return self.moderator.action(author_rule, actions=author_actions)
+
     def set_flair(self, rule):
         if(self.item.link_flair_text is None or rule.config.get('overwrite_flair')):
             print("Setting flair for user %s" % self.item.author.name)

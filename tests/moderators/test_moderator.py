@@ -386,56 +386,6 @@ class ModeratorTestCase(unittest.TestCase):
         comment.edited = False
         self.assertFalse(mod.moderate(rule), "is_edited matching as false positive")
 
-    def test_crosspost_name_check(self):
-        old_submission = reddit.submission
-        og_post = helpers.post()
-        reddit.submission = MagicMock(return_value=og_post)
-
-        post = helpers.post()
-        rule = Rule({
-            'crosspost_subreddit': {
-                'name': 'Cross'
-            },
-            'action': 'approve'
-        })
-
-        mod = Moderator(post)
-        og_post.subreddit.name = "Cross Sub"
-        self.assertFalse(mod.moderate(rule), "crosspost_subreddit name matching even when post is not a crosspost")
-
-        post.crosspost_parent = 't3_abcde'
-        assert mod.moderate(rule), "crosspost_subreddit name not matching"
-
-        og_post.subreddit.name = "TestSub"
-        self.assertFalse(mod.moderate(rule), "crosspost_subreddit name matching as false positive")
-
-        reddit.submission = old_submission
-
-    def test_crosspost_is_nsfw_check(self):
-        old_submission = reddit.submission
-        og_post = helpers.post()
-        reddit.submission = MagicMock(return_value=og_post)
-
-        post = helpers.post()
-        rule = Rule({
-            'crosspost_subreddit': {
-                'is_nsfw': True
-            },
-            'action': 'approve'
-        })
-
-        mod = Moderator(post)
-        og_post.subreddit.over18 = True
-        self.assertFalse(mod.moderate(rule), "crosspost_subreddit is_nsfw matching even when post is not a crosspost")
-
-        post.crosspost_parent = 't3_abcde'
-        assert mod.moderate(rule), "crosspost_subreddit is_nsfw not matching"
-
-        og_post.subreddit.over18 = False
-        self.assertFalse(mod.moderate(rule), "crosspost_subreddit is_nsfw matching as false positive")
-
-        reddit.submission = old_submission
-
     def test_account_age(self):
         post = helpers.post()
         mod = Moderator(post)

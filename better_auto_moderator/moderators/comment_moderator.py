@@ -24,6 +24,15 @@ class CommentModeratorChecks(ModeratorChecks):
         post_rule = Rule(value)
         return self.moderator.check(post_rule, checks=post_checks)
 
+    def parent_comment(self, value, rule, options):
+        if self.item.depth == 0:
+            return None
+
+        comment_checks = CommentModeratorChecks(self.moderator)
+        comment_checks.item = self.item.parent()
+        comment_rule = Rule(value)
+        return self.moderator.check(comment_rule, checks=comment_checks)
+
     @comparator(default='bool')
     def is_top_level(self, rule, options):
         return self.item.depth == 0
@@ -34,8 +43,17 @@ class ModeratorCommentAuthorChecks(ModeratorAuthorChecks):
         return self.item.author.id == self.item.submission.author.id
 
 class CommentModeratorActions(ModeratorActions):
-    def parent_submission(self, value, rule, options):
+    def parent_submission(self, rule):
         post_actions = PostModeratorActions(self.moderator)
         post_actions.item = self.item.submission
-        post_rule = Rule(value)
-        return self.moderator.check(post_rule, actions=post_actions)
+        post_rule = Rule(rule.config['parent_submission'])
+        return self.moderator.action(post_rule, actions=post_actions)
+
+    def parent_comment(self, rule):
+        if self.item.depth == 0:
+            return None
+
+        comment_actions = CommentModeratorActions(self.moderator)
+        comment_actions.item = self.item.parent()
+        comment_rule = Rule(rule.config['parent_comment'])
+        return self.moderator.action(comment_rule, actions=comment_actions)

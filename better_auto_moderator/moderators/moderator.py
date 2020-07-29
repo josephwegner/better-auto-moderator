@@ -114,8 +114,6 @@ class Moderator:
                             val = ModeratorPlaceholders.replace(val, self.item, self)
 
                         check_val = check(val, rule, options)
-                        if self.item.id == 'hz5yrk':
-                            print(check_name, val, check_val, options)
                         if check_val is None:
                             return False
                         elif check_val is check_truthiness:
@@ -362,23 +360,6 @@ class ModeratorChecks(AbstractChecks):
         author_rule = Rule(value)
         return self.moderator.check(author_rule, checks=author_checks)
 
-    def crosspost_author(self, value, rule, options):
-        if not hasattr(self.item, 'crosspost_parent'):
-            return None
-
-        author_checks = ModeratorAuthorChecks(self.moderator)
-        author_checks.item = reddit.submission(self.item.crosspost_parent.split('_')[1])
-        author_rule = Rule(value)
-        return self.moderator.check(author_rule, checks=author_checks)
-
-    def crosspost_subreddit(self, value, rule, options):
-        if not hasattr(self.item, 'crosspost_parent'):
-            return None
-
-        sub_checks = ModeratorCrosspostSubredditChecks(self.moderator)
-        sub_rule = Rule(value)
-        return self.moderator.check(sub_rule, checks=sub_checks)
-
     @comparator(default='contains')
     def report_reasons(self, rule, options):
         reports = self.item.user_reports
@@ -395,19 +376,6 @@ class ModeratorChecks(AbstractChecks):
     @comparator(default='bool')
     def is_edited(self, rule, options):
         return bool(self.item.edited)
-
-class ModeratorCrosspostSubredditChecks(AbstractChecks):
-    @cached_property
-    def parent(self):
-        return reddit.submission(self.item.crosspost_parent.split('_')[1])
-
-    @comparator(default='includes-word')
-    def name(self, rule, options):
-        return self.parent.subreddit.name
-
-    @comparator(default='bool')
-    def is_nsfw(self, rule, options):
-        return self.parent.subreddit.over18
 
 class ModeratorAuthorChecks(AbstractChecks):
     @comparator(default='numeric')
@@ -477,15 +445,6 @@ class ModeratorActions(AbstractActions):
         author_actions = ModeratorAuthorActions(self.moderator)
         author_rule = Rule(rule.config.get('author'))
         return self.moderator.action(author_rule, actions=author_actions)
-
-    def crosspost_author(self, value, rule, options):
-        if not hasattr(self.item, 'crosspost_parent'):
-            return None
-
-        author_actions = ModeratorAuthorActions(self.moderator)
-        author_actions.item = reddit.submission(self.item.crosspost_parent.split('_')[1])
-        author_rule = Rule(value)
-        return self.moderator.check(author_rule, actions=author_actions)
 
     def ignore_reports(self, rule):
         print("Ingoring reports on %s %s" % (type(self.item).__name__, self.item.id))
