@@ -44,6 +44,6 @@ The biggest thing is you should make a backup of your `automoderator/config` fil
 
 Then open the `better_auto_moderator` file and change `overwrite_automoderator` to `true`. Save the file, and you're done!
 
-You'll notice that your `automoderator_config` file was updated - BAM does this every time you write new rules. As much as possible BAM tries to let AutoModerator run rules itself, so it scans all of the rule definitions and pulls out the ones that fit within the defalt AutoModerator features. Those get automatically written to the `automoderator/config` file for you!
+You'll notice that your `automoderator/config` file was updated - BAM does this every time you write new rules. As much as possible BAM tries to let AutoModerator run rules itself, so it scans all of the rule definitions and pulls out the ones that fit within the defalt AutoModerator features. Those get automatically written to the `automoderator/config` file for you!
 
 From now on, only ever make edits to the `better_auto_moderator` configuration files.
