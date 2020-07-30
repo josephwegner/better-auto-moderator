@@ -1,6 +1,6 @@
 import re
 from functools import cached_property
-from better_auto_moderator.moderators.moderator import Moderator, ModeratorChecks, ModeratorActions, AbstractChecks, comparator
+from better_auto_moderator.moderators.moderator import Moderator, ModeratorChecks, ModeratorActions, AbstractChecks, comparator, ModeratorPlaceholders
 from better_auto_moderator.reddit import reddit
 from better_auto_moderator.rule import Rule
 
@@ -177,19 +177,18 @@ class ModeratorCrosspostSubredditChecks(AbstractChecks):
         return self.parent.subreddit.over18
 
 class PostModeratorActions(ModeratorActions):
-    def crosspost_author(self, rule):
+    def crosspost_author(self, rule, value):
         if not hasattr(self.item, 'crosspost_parent'):
             return None
 
         author_actions = ModeratorAuthorActions(self.moderator)
         author_actions.item = reddit.submission(self.item.crosspost_parent.split('_')[1])
-        author_rule = Rule(rule.config['crosspost_author'])
+        author_rule = Rule(value)
         return self.moderator.action(author_rule, actions=author_actions)
 
-    def set_flair(self, rule):
+    def set_flair(self, rule, value):
         if(self.item.link_flair_text is None or rule.config.get('overwrite_flair')):
             print("Setting flair for user %s" % self.item.author.name)
-            value = rule.config['set_flair']
             if isinstance(value, str):
                 self.item.mod.flair(text=value)
                 return True
@@ -205,8 +204,7 @@ class PostModeratorActions(ModeratorActions):
 
         return False
 
-    def set_nsfw(self, rule):
-        value = rule.config['set_nsfw']
+    def set_nsfw(self, rule, value):
         if value:
             print("Setting %s %s as nsfw" % (type(self.item).__name__, self.item.id))
             self.item.mod.nsfw()
@@ -216,8 +214,7 @@ class PostModeratorActions(ModeratorActions):
 
         return True
 
-    def set_spoiler(self, rule):
-        value = rule.config['set_spoiler']
+    def set_spoiler(self, rule, value):
         if value:
             print("Setting %s %s as spoiler" % (type(self.item).__name__, self.item.id))
             self.item.mod.spoiler()
@@ -227,13 +224,12 @@ class PostModeratorActions(ModeratorActions):
 
         return True
 
-    def set_contest_mode(self, rule):
+    def set_contest_mode(self, rule, value):
         print("Setting contest mode on %s %s" % (type(self.item).__name__, self.item.id))
-        self.item.mod.contest_mode((rule.config['set_contest_mode'] is True))
+        self.item.mod.contest_mode((value is True))
         return True
 
-    def set_original_content(self, rule):
-        value = rule.config['set_original_content']
+    def set_original_content(self, rule, value):
         if value:
             print("Setting %s %s as original content" % (type(self.item).__name__, self.item.id))
             self.item.mod.set_original_content()
@@ -243,7 +239,7 @@ class PostModeratorActions(ModeratorActions):
 
         return True
 
-    def set_suggested_sort(self, rule):
+    def set_suggested_sort(self, rule, value):
         print("Setting suggested sort on %s %s to %s" % (type(self.item).__name__, self.item.id, rule.config['set_suggested_sort']))
-        self.item.mod.suggested_sort(rule.config['set_suggested_sort'])
+        self.item.mod.suggested_sort(value)
         return True

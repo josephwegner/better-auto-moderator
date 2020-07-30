@@ -91,7 +91,8 @@ while True:
             print("Processing %s %s" % (type(item).__name__, item))
             mod = stream['moderator'](item)
             for rule in stream['rules']:
-                if mod.moderate(rule):
+                ran = mod.moderate(rule)
+                if ran:
                     # If the rule passes, don't apply any additional rules for this item
                     break
 

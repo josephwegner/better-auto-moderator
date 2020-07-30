@@ -62,7 +62,8 @@ class Moderator:
         ran = False
         for key in rule.config.keys():
             if hasattr(actions, key):
-                if getattr(actions, key)(rule):
+                value = ModeratorPlaceholders.replace(rule.config[key], self.item, self)
+                if getattr(actions, key)(rule, value):
                     ran = True
 
         return ran
@@ -75,7 +76,12 @@ class Moderator:
 
         satisfy_any_threshold = rule.config.get('satisfy_any_threshold')
         satisfied_threshold = False
-        threshold_checks = ['comment_karma', 'post_karma', 'combined_karma', 'account_age']
+        threshold_checks = [
+            'comment_karma',
+            'post_karma',
+            'combined_karma',
+            'account_age',
+            'satisfy_any_threshold']
 
         for key in rule.config:
             check_name = key
@@ -93,13 +99,14 @@ class Moderator:
                 check_name = check_name[1:]
                 check_truthiness = False
 
-            # Checks can be combined, like `body+author: butts`. These are OR conditions, not AND
-            passed = False
-            for name in check_name.split('+'):
-                if not hasattr(checks, name):
-                    passed = True
-                    break
+            check_names = check_name.split('+')
+            check_names = list(filter(lambda check: hasattr(checks, check), check_names))
+            if len(check_names) == 0 and check_name != 'satisfy_any_threshold':
+                continue
 
+            # Checks can be combined, like `body+author: butts`. These are OR conditions, not AND
+            passed = not check_truthiness
+            for name in check_names:
                 check = getattr(checks, name)
                 if callable(check):
                     values = rule.config[key]
@@ -116,8 +123,8 @@ class Moderator:
                         check_val = check(val, rule, options)
                         if check_val is None:
                             return False
-                        elif check_val is check_truthiness:
-                            passed = True
+                        elif check_val is True:
+                            passed = check_truthiness
 
             if not passed and (not satisfy_any_threshold or check_name not in threshold_checks):
                 return False
@@ -184,7 +191,7 @@ class Moderator:
 
         if 'regex' in options:
             for value in values:
-                if re.match(test, value) is not None:
+                if re.search(test, value) is not None:
                     return True
 
             return False
@@ -441,58 +448,56 @@ class AbstractActions:
         self.item = moderator.item
 
 class ModeratorActions(AbstractActions):
-    def author(self, rule):
+    def author(self, rule, value):
         author_actions = ModeratorAuthorActions(self.moderator)
-        author_rule = Rule(rule.config.get('author'))
+        author_rule = Rule(value)
         return self.moderator.action(author_rule, actions=author_actions)
 
-    def ignore_reports(self, rule):
+    def ignore_reports(self, rule, value):
         print("Ingoring reports on %s %s" % (type(self.item).__name__, self.item.id))
         self.item.mod.ignore_reports()
         return True
 
-    def log(self, rule):
-        print(rule.config['log'])
+    def log(self, rule, value):
+        print(value)
         return True
 
-    def reply(self, rule):
-        body = rule.config['reply']
+    def comment(self, rule, value):
         print("Replying to %s %s" % (type(self.item).__name__, self.item.id))
-        comment = self.item.reply(body)
+        comment = self.item.reply(value)
 
         if rule.config.get('comment_locked'):
-            comment.lock()
+            comment.mod.lock()
         if rule.config.get('comment_stickied'):
-            self.item.mod.distinguish("yes", sticky=True)
+            comment.mod.distinguish("yes", sticky=True)
 
-    def message(self, rule):
+    def message(self, rule, value):
         subject = "BetterAutoModerator notification"
         if 'message_subject' in rule.config:
-            subject = rule.config['message_subject']
+            subject = ModeratorPlaceholders.replace(rule.config['message_subject'], self.item, self.moderator)
 
         message = """%s
 
 %s
 
-*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](https://www.reddit.com/message/compose/?to=/r/%s) if you have any questions or concerns.*""" % ("https://www.reddit.com"+self.item.permalink, rule.config['message'], self.item.subreddit.name)
+*I am a bot, and this action was performed automatically. Please [contact the moderators of this subreddit](https://www.reddit.com/message/compose/?to=/r/%s) if you have any questions or concerns.*""" % ("https://www.reddit.com"+self.item.permalink, value, self.item.subreddit.name)
 
         self.item.subreddit.modmail.create(subject, message, self.item.author)
 
-    def modmail(self, rule):
+    def modmail(self, rule, value):
         subject = "BetterAutoModerator notification"
         if 'modmail_subject' in rule.config:
-            subject = rule.config['modmail_subject']
+            subject = ModeratorPlaceholders.replace(rule.config['modmail_subject'], self.item, self.moderator)
 
         message = """%s
 
 %s
 
-*I am a bot, and this action was performed automatically.*""" % ("https://www.reddit.com"+self.item.permalink, rule.config['modmail'])
+*I am a bot, and this action was performed automatically.*""" % ("https://www.reddit.com"+self.item.permalink, value)
 
         self.item.subreddit.message(subject, message)
 
-    def action(self, rule):
-        value = rule.config['action']
+    def action(self, rule, value):
         if 'action_reason' in rule.config and value != 'report':
             print("Note: action_reason cannot be attached to rules enforced by BAM. Logging instead: %s" % rule.config['action_reason'])
 
@@ -524,17 +529,16 @@ class ModeratorActions(AbstractActions):
             print("Reporting %s %s" % (type(self.item).__name__, self.item.id))
             reason = None
             if 'report_reason' in rule.config:
-                reason = rule.config['report_reason']
+                reason = ModeratorPlaceholders.replace(rule.config['report_reason'], self.item, self.moderator)
             elif 'action_reason' in rule.config:
-                reason = rule.config['action_reason']
+                reason = ModeratorPlaceholders.replace(rule.config['action_reason'], self.item, self.moderator)
 
             self.item.report(reason)
             return True
 
         return False
 
-    def set_sticky(self, rule):
-        value = rule.config.get('set_sticky')
+    def set_sticky(self, rule, value):
         if value:
             print("Setting %s %s to sticky" % (type(self.item).__name__, self.item.id))
             self.item.mod.distinguish("yes", sticky=True)
@@ -544,8 +548,7 @@ class ModeratorActions(AbstractActions):
 
         return True
 
-    def set_locked(self, rule):
-        value = rule.config['set_locked']
+    def set_locked(self, rule, value):
         if value:
             print("Locking %s %s" % (type(self.item).__name__, self.item.id))
             self.item.mod.lock()
@@ -556,38 +559,40 @@ class ModeratorActions(AbstractActions):
         return True
 
 class ModeratorAuthorActions(AbstractActions):
-    def set_flair(self, rule):
+    def set_flair(self, rule, value):
         check = ModeratorAuthorChecks(self.moderator)
         flair_text = check.flair_text.__wrapped__(check, rule, [])
 
         if(flair_text is None or rule.config.get('overwrite_flair')):
             print("Setting flair for user %s" % self.item.author.name)
-            value = rule.config['set_flair']
             if isinstance(value, str):
-                self.item.subreddit.flair.set(text=value)
+                self.item.subreddit.flair.set(self.item.author, text=value)
                 return True
             elif isinstance(value, list):
-                self.item.subreddit.flair.set(text=value[0], css_class=value[1])
+                self.item.subreddit.flair.set(self.item.author, text=value[0], css_class=value[1])
                 return True
             elif isinstance(value, dict):
                 if not 'template_id' in value:
                     raise Exception("template_id must be provided in set_flair object")
 
-                self.item.subreddit.flair.set(text=value['text'], css_class=value['css_class'], template_id=value['template_id'])
+                self.item.subreddit.flair.set(self.item.author, text=value['text'], css_class=value['css_class'], template_id=value['template_id'])
                 return True
 
         return False
 
 class ModeratorPlaceholders():
     @classmethod
-    def replace(cls, str, item, mod):
-        # Find anything like {{word}} in the string
-        match = re.search(r'{{(.*?)}}', str)
-        if match is None:
-            return str
+    def replace(cls, val, item, mod):
+        if not isinstance(val, str):
+            return val
 
-        replaced = str
-        for group in match.groups():
+        # Find anything like {{word}} in the string
+        matches = re.findall(r'{{(.*?)}}', val)
+        if len(matches) == 0:
+            return val
+
+        replaced = val
+        for group in matches:
             inject = None
             if group[:5] == 'match':
                 key = group[6:]
@@ -598,7 +603,7 @@ class ModeratorPlaceholders():
                 inject = getattr(cls, group)(item)
 
             if inject is not None:
-                replaced = str.replace("{{%s}}" % group, inject)
+                replaced = replaced.replace("{{%s}}" % group, inject)
 
         return replaced
 
@@ -650,7 +655,7 @@ class ModeratorPlaceholders():
 
     @staticmethod
     def subreddit(item):
-        return item.subreddit.name
+        return item.subreddit.display_name
 
     @staticmethod
     def kind(item):

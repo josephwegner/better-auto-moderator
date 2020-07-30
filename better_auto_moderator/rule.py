@@ -5,18 +5,21 @@ class Rule:
     # by Automoderator. This flag is used for BAM to know which rules it should implement
     requires_bam = False
 
-    def __init__(self, config):
+    def __init__(self, config, global_config={}):
         self.raw = config
         self.config = {}
         self.type = 'any'
         self.priority = 0
+
+        if not isinstance(config, dict):
+            return
 
         # Create one-off methods for rules that require bam, but don't need anything else special
         basic_bam_rules = ['log', 'is_banned']
         for rule in basic_bam_rules:
             setattr(self, "parse_"+rule, self.basic_bam_rule(rule))
 
-        self.parse(self.raw, self.config)
+        self.parse(self.raw, self.config, global_config)
 
     def basic_bam_rule(self, key):
         def parse(val, stored_configs):
@@ -41,7 +44,7 @@ class Rule:
             return True
         return False
 
-    def parse(self, config, stored_configs):
+    def parse(self, config, stored_configs, global_config):
         for key in config.keys():
             # This class has a bunch of parse_* methods that will be used to parse the rule
             # For instance, if a rule has `type: submission`, that will be parsed by
@@ -53,13 +56,13 @@ class Rule:
             elif isinstance(config.get(key), dict):
                 # Dictionaries are usually sub groups, and may include bam keys. Parse separately
                 stored_configs[key] = {}
-                self.parse(config.get(key), stored_configs[key])
+                self.parse(config.get(key), stored_configs[key], global_config)
             else:
                 stored_configs[key] = config.get(key)
 
         self.set_standards(stored_configs)
 
-        if self.requires_bam and self.config.get('action') == 'filter':
+        if (self.requires_bam or not global_config.get('overwrite_automoderator')) and self.config.get('action') == 'filter':
             raise Exception('Filter actions cannot be run by BAM.')
 
     def set_standards(self, config):

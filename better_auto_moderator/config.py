@@ -51,7 +51,7 @@ def get_configs():
         if loaded is None:
             continue
 
-        rules.append(Rule(loaded))
+        rules.append(Rule(loaded, config))
     return (rules, config)
 
 # Read the rules out the subreddit's wiki, in the /better_auto_moderator

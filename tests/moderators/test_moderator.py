@@ -93,12 +93,17 @@ class ModeratorTestCase(unittest.TestCase):
         })
         assert mod.moderate(rule), "Doesn't match when validity is default"
 
+        rule = Rule({
+            'id': ['abcde', 'fghij'],
+            'action': 'remove'
+        })
+        assert mod.moderate(rule), "Doesn't match lists when validity is default"
 
         rule = Rule({
             '~id': 'abcde',
             'action': 'remove'
         })
-        self.assertFalse(mod.moderate(rule), "Matches when validity is default")
+        self.assertFalse(mod.moderate(rule), "Matches when validity is false")
 
         rule = Rule({
             'id': 'test',
@@ -111,7 +116,19 @@ class ModeratorTestCase(unittest.TestCase):
             '~id': 'test',
             'action': 'remove'
         })
-        assert mod.moderate(rule), "Doesn't match when validity is default, but there's no actual match"
+        assert mod.moderate(rule), "Doesn't match when validity is false, but there's no actual match"
+
+        rule = Rule({
+            '~id': ['fghij', 'klmno'],
+            'action': 'remove'
+        })
+        assert mod.moderate(rule), "Matches when a list of values is given but none match"
+
+        rule = Rule({
+            '~id': ['abcde', 'fghij'],
+            'action': 'remove'
+        })
+        self.assertFalse(mod.moderate(rule), "Matches when a list of values is given and one matches")
 
     def test_lowercase_checks(self):
         comment = helpers.comment()
