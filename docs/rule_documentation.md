@@ -33,8 +33,8 @@ _* available in Reddit's AutoModerator_
 - _bool*_: Compares True/False values. See AutoModerator's `is_edited` for an example.
 - _numeric*_: Compares numeric values, with modifiers such as `> 5` or `< 200`. See AutoModerator's `comment_karma` for details.
 - _time*_: Compares a timestamp to a value, such as `> 90 days` or `< 60 hours`. See AutoModerator's `account_age` for details.
-- `contains`: Checks if a list contains the value
-- `only`: Checks if a list contains _only_ the value. Lists with the same value multiple times will pass.
+- **contains**: Checks if a list contains the value
+- **only**: Checks if a list contains _only_ the value. Lists with the same value multiple times will pass.
 
 ### Sub-Groups
 _* available in Reddit's AutoModerator_
@@ -50,7 +50,7 @@ _* available in Reddit's AutoModerator_
 - _is_edited*_
 - _reports*_
 - _url*_
-- `report_reasons`: A list of reasons that an item has been reported
+- **report_reasons**: A list of reasons that an item has been reported
 
 ### Actions
 _* available in Reddit's AutoModerator_
@@ -60,5 +60,5 @@ _* available in Reddit's AutoModerator_
 - _modmail*_
 - _setsticky*_
 - _set_locked*_
-- `ignore_reports`: Ignores any active reports on an item
-- `log`: Creates a log message in BAM's server logs
+- **ignore_reports**: Ignores any active reports on an item
+- **log**: Creates a log message in BAM's server logs
