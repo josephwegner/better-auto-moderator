@@ -18,7 +18,7 @@ The line between an Automoderator rule and a BAM rule is very fine - so small th
 
 ## Install
 
-Heroku Button will go here
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy)
 
 ## Development
 
