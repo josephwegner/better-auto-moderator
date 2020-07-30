@@ -1,0 +1,36 @@
+{
+  "name": "BetterAutoModerator",
+  "description": "BAM is a refreshed and super-charged version of Reddit's existing auto-moderator functionality. ",
+  "repository": "https://github.com/josephwegner/better-auto-moderator",
+  "keywords": ["python", "reddit", "moderation"],
+  "env": {
+    "REDDIT_CLIENT_ID": {
+      "description": "The client ID for your Reddit applicaiton (see https://www.reddit.com/prefs/apps)",
+      "required": true
+    },
+    "REDDIT_CLIENT_SECRET": {
+      "description": "The client secret for your Reddit applicaiton (see https://www.reddit.com/prefs/apps)",
+      "required": true
+    },
+    "REDDIT_USERNAME": {
+      "description": "The username for your Reddit moderation user. We strongly recommend using a separate bot account for this.",
+      "required": true
+    },
+    "REDDIT_PASSWORD": {
+      "description": "The password for your Reddit moderation user",
+      "required": true
+    },
+    "REDDIT_SUBREDDIT": {
+      "description": "The subreddit you want to moderate",
+      "required": true
+    }
+  },
+  "formation": {
+    "worker": {
+      "quantity": 1,
+      "size": "Free"
+    }
+  },
+  "image": "heroku/python"
+}
+
