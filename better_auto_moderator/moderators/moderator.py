@@ -402,7 +402,7 @@ class ModeratorAuthorChecks(AbstractChecks):
         return self.item.author.id
 
     @comparator(default='includes-word')
-    def id(self, rule, options):
+    def name(self, rule, options):
         return self.item.author.name
 
     @comparator(default='full-exact')
