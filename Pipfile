@@ -10,8 +10,8 @@ mock = "*"
 
 [packages]
 praw = "*"
-pyyaml = "*"
 python-dateutil = "*"
+"ruamel.yaml" = "*"
 
 [requires]
 python_version = "3.8"

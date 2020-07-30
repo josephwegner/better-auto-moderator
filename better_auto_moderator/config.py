@@ -1,8 +1,10 @@
-import yaml
+import tempfile
 import os
 import re
+from ruamel import yaml
 from better_auto_moderator.rule import Rule
 from better_auto_moderator.reddit import subreddit, update_automod_config
+from better_auto_moderator.util import to_yaml_string
 
 config_last_update_at = 0
 rules_last_update_at = 0
@@ -12,13 +14,44 @@ def get_configs():
     if yaml_rules is None:
         return (None, None)
 
+    config = yaml.load(yaml_config.strip(), Loader=yaml.SafeLoader)
+
+    # We are loading variables separately from config, and we need to insert
+    # them into the YAML loader context. This special anchored_loader
+    # method creates a new yaml.SafeLoader and injects the variables/all_anchors
+    # before processing the document. When it's done it, then collects any _new_
+    # anchors, and saves those for the next run.
+    all_anchors = {}
+    def anchored_loader(stream, all_anchors):
+        loader = yaml.SafeLoader(stream)
+        loader.anchors = all_anchors
+        try:
+            return loader.get_single_data()
+        finally:
+            all_anchors = loader.anchors
+            loader.dispose()
+
+    if 'variables' in config:
+        variables_block = ""
+        for var in config['variables']:
+            # Format vaues into a value yaml doc
+            value = to_yaml_string(config['variables'][var])
+            variables_block = "%s%s: &%s %s" % (variables_block, var, var, value)
+
+        # Capture variables in all_anchors
+        anchored_loader(variables_block, all_anchors)
+
     raw_rules = [rule.strip() for rule in yaml_rules.split('---')]
     rules = []
     for raw in raw_rules:
-        if len(raw) == 0:
+        if len(raw) == 0: #Skip empty rules
             continue
-        rules.append(Rule(yaml.load(raw, Loader=yaml.Loader)))
-    config = yaml.load(yaml_config.strip(), Loader=yaml.Loader)
+
+        loaded = anchored_loader(raw, all_anchors)
+        if loaded is None:
+            continue
+
+        rules.append(Rule(loaded))
     return (rules, config)
 
 # Read the rules out the subreddit's wiki, in the /better_auto_moderator
@@ -66,7 +99,7 @@ def create_bam_pages(create_config):
     #
     # NOTE: Backup your automoderator config before turning this on, as it will be lost.
     # It should be saved in revisions, but be safe.
-    overwrite_automoderator: true
+    overwrite_automoderator: false
         """
         page = subreddit.wiki.create("better_auto_moderator", content, reason="BAM Setup")
         page.mod.update(True, 2) # Lock the page to mods only

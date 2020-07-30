@@ -1,5 +1,4 @@
-import yaml
-from operator import itemgetter
+from better_auto_moderator.util import to_yaml_string
 
 class Rule:
     # We'll flip this to True whenever a rule uses options that are not supported
@@ -35,7 +34,7 @@ class Rule:
         config['priority'] = self.priority
         config['type'] = self.type
 
-        return yaml.dump(config, Dumper=yaml.Dumper)
+        return to_yaml_string(config)
 
     def is_priority(self):
         if 'action' in self.config and self.config['action'] in ['remove', 'spam', 'filter']:
@@ -99,7 +98,7 @@ class Rule:
 
     def parse_ignore_reports(self, val, configs):
         if val:
-            config['ignore_reports'] = True
+            configs['ignore_reports'] = True
             self.requires_bam = True
 
     def parse_priority(self, priority, config):
