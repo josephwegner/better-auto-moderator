@@ -2,6 +2,42 @@
 
 BAM is a refreshed and super-charged version of Reddit's existing auto-moderator functionality. The vision is to recreate what already exists within Reddit's Automoderator, and expand on it in useful and expected ways. The big boon behind BAM is that if you've already learned how to write Automoderator rules, there's nothing new to learn with BAM - the syntax and behavior are identical, but with more options you can use.
 
+## What can this do?
+
+Well, at the very least, it can do everything AutoModerator can... but importantly, it extends the existing feature set of AutoModerator with some nice new checks, actions, and objects to moderate. That means you can do things like:
+
+**Remove comments that are edited by banned users**
+```
+type: comment
+is_edited: true
+author:
+    is_banned: true
+action: remove
+remove_reason: "User edited after being banned"
+modmail_subject: "Post-ban edit review"
+modmail: "This comment was edited by a banned user. Please review in case a ban extension is appropriate."
+```
+
+**Automatically lock comment removal reasons**
+```
+type: comment
+parent_comment:
+    is_removed: true
+author:
+    is_moderator: true
+set_locked: true
+```
+
+**Automatically approve reports on sticky posts/comments**
+```
+type: modqueue
+is_stickied: true
+action: approve
+ignore_reports: true
+```
+
+And so much more! View the docs to see what's possible!
+
 ## Philosophy
 
 ### Let Automoderator do what Automoderator does best
