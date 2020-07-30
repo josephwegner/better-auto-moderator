@@ -44,6 +44,7 @@ _* available in Reddit's AutoModerator_
 ### Checks
 _* available in Reddit's AutoModerator_
 
+- **bam**: `true`/`false`. Always passes a check, but when `true` it forces this rule to run from BAM, even if it could be run by AutoModerator.
 - **report_reasons**: A list of reasons that an item has been reported
 - _body*_
 - _body_longer_than*_
@@ -52,6 +53,8 @@ _* available in Reddit's AutoModerator_
 - _is_edited*_
 - _reports*_
 - _url*_
+
+Note that `standards` and `priority` can be used here, just as they can in Reddit's AutoModerator.
 
 ### Actions
 _* available in Reddit's AutoModerator_
