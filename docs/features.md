@@ -11,7 +11,7 @@ In your config file (`better_auto_moderator` in wiki), you can add a `variables`
 ```
 variables:
     - shadowbanned_users: ['joker', 'meanieface', 'badguy']
-    - approved_user_flairs: 'Top performer', 'Nice guy', 'Thoughtful individual']
+    - approved_user_flairs: ['Top performer', 'Nice guy', 'Thoughtful individual']
 ```
 
 These variables are then available in your rules, to be used as [YAML anchors](https://support.atlassian.com/bitbucket-cloud/docs/yaml-anchors/). That goes something like this:
