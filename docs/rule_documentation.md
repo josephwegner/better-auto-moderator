@@ -71,7 +71,7 @@ _* available in Reddit's AutoModerator_
 ### Checks
 _* available in Reddit's AutoModerator_
 
-- **is_banned**: Whether or not the Author is a moderator of parent item's subreddit. Defaults to `bool` comparator.
+- **is_banned**: Whether or not the Author is a banned from the subreddit. Defaults to `bool` comparator.
 - _account_age*_
 - _combined_karma*_
 - _comment_karma*_
